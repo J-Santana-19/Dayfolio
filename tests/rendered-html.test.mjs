@@ -47,3 +47,27 @@ test("ships the calendar, local persistence and social artwork", async () => {
   assert.match(layout, /summary_large_image/);
   await access(new URL("../public/og.png", import.meta.url));
 });
+
+test("ships the productivity, diagram and visual-export upgrades", async () => {
+  const [workspaceApp, flowchart, exporters, settings, workspaceTypes] = await Promise.all([
+    readFile(new URL("../src/components/workspace-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/flowchart/flowchart-editor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/utils/exporters.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/settings-dialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/types/workspace.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(workspaceApp, /focusMode/);
+  assert.match(workspaceApp, /workspaceZoom/);
+  assert.match(flowchart, /selectionBox/);
+  assert.match(flowchart, /groupId/);
+  assert.match(flowchart, /selectedConnection/);
+  assert.match(exporters, /toCanvas/);
+  assert.match(exporters, /contentBottomY/);
+  assert.match(exporters, /drawingData/);
+  assert.match(exporters, /flowSvg/);
+  assert.match(settings, /snapToGrid/);
+  assert.match(settings, /toolbarMode/);
+  assert.match(workspaceTypes, /"subprocess"/);
+  assert.match(workspaceTypes, /strokeWidth/);
+});

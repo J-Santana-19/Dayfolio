@@ -76,6 +76,10 @@ export function createInitialState(): WorkspaceState {
     lineHeight: "comfortable",
     spellCheck: true,
     showToolbar: true,
+    toolbarMode: "compact",
+    workspaceZoom: 100,
+    snapToGrid: true,
+    gridSize: 20,
     reduceMotion: false,
   };
 }

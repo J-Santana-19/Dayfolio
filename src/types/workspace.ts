@@ -1,6 +1,6 @@
 export type Theme = "light" | "dark";
 export type TabKind = "document" | "drawing" | "flowchart";
-export type FlowNodeType = "start" | "input" | "decision" | "process" | "output" | "end";
+export type FlowNodeType = "start" | "input" | "decision" | "process" | "output" | "subprocess" | "connector" | "end";
 
 export interface FlowNode {
   id: string;
@@ -8,6 +8,13 @@ export interface FlowNode {
   label: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  zIndex?: number;
+  groupId?: string;
 }
 
 export interface FlowConnection {
@@ -15,6 +22,9 @@ export interface FlowConnection {
   from: string;
   to: string;
   label?: string;
+  color?: string;
+  width?: number;
+  dashed?: boolean;
 }
 
 export interface DocumentTab {
@@ -64,5 +74,9 @@ export interface WorkspaceState {
   lineHeight: "compact" | "comfortable" | "relaxed";
   spellCheck: boolean;
   showToolbar: boolean;
+  toolbarMode: "compact" | "expanded";
+  workspaceZoom: number;
+  snapToGrid: boolean;
+  gridSize: number;
   reduceMotion: boolean;
 }

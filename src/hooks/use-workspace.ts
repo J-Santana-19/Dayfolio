@@ -12,6 +12,8 @@ export function useWorkspace() {
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const skipFirstSave = useRef(true);
+  const latestState = useRef(state);
+  useEffect(() => { latestState.current = state; }, [state]);
 
   useEffect(() => {
     loadWorkspace().then((stored) => {
@@ -39,6 +41,13 @@ export function useWorkspace() {
     }, 650);
     return () => window.clearTimeout(timer);
   }, [state, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const flush = () => { if (document.visibilityState === "hidden") void saveWorkspace(latestState.current); };
+    document.addEventListener("visibilitychange", flush);
+    return () => document.removeEventListener("visibilitychange", flush);
+  }, [ready]);
 
   const activeDocument = useMemo(() => state.documents.find((doc) => doc.id === state.activeDocumentId) ?? state.documents[0], [state]);
   const activeTab = useMemo(() => activeDocument?.tabs.find((tab) => tab.id === activeDocument.activeTabId) ?? activeDocument?.tabs[0], [activeDocument]);

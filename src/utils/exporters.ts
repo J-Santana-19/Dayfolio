@@ -1,4 +1,4 @@
-import type { WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
+import type { DocumentTab, FlowNode, WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
 
 export type ExportFormat = "pdf" | "docx" | "md" | "html" | "txt" | "json" | "png" | "jpg" | "svg" | "csv" | "xlsx";
 
@@ -45,6 +45,62 @@ function selectedTabs(doc: WorkspaceDocument, scope: ExportOptions["scope"]) {
   return scope === "tab" ? doc.tabs.filter((tab) => tab.id === doc.activeTabId) : doc.tabs;
 }
 
+function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!); }
+
+function flowSvg(tab: DocumentTab) {
+  const nodes = tab.flowNodes ?? [], connections = tab.flowConnections ?? [];
+  const nodeSize = (node: FlowNode) => ({ width: node.width ?? 150, height: node.height ?? 52 });
+  const lines = connections.map((connection) => { const from = nodes.find((node) => node.id === connection.from), to = nodes.find((node) => node.id === connection.to); if (!from || !to) return ""; const fs = nodeSize(from), ts = nodeSize(to), x1 = from.x + fs.width / 2, y1 = from.y + fs.height, x2 = to.x + ts.width / 2, y2 = to.y, mid = (y1 + y2) / 2; return `<path d="M${x1} ${y1} C${x1} ${mid},${x2} ${mid},${x2} ${y2}" fill="none" stroke="${connection.color ?? "#7b735f"}" stroke-width="${connection.width ?? 2}" ${connection.dashed ? 'stroke-dasharray="8 6"' : ""} marker-end="url(#arrow)"/>`; }).join("");
+  const shapes = [...nodes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((node) => { const { width, height } = nodeSize(node), fill = node.fill ?? "#fffaf1", stroke = node.stroke ?? "#8c806f", sw = node.strokeWidth ?? 2; const shape = node.type === "decision" ? `<polygon points="${width / 2},0 ${width},${height / 2} ${width / 2},${height} 0,${height / 2}"/>` : node.type === "connector" ? `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2 - 2}" ry="${height / 2 - 2}"/>` : `<rect width="${width}" height="${height}" rx="${node.type === "start" || node.type === "end" ? height / 2 : 10}"/>`; return `<g transform="translate(${node.x},${node.y})" fill="${fill}" stroke="${stroke}" stroke-width="${sw}">${shape}<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" fill="#33261f" stroke="none" font-family="Arial" font-size="13">${escapeHtml(node.label)}</text></g>`; }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" width="1000" height="700"><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7b735f"/></marker></defs><rect width="1000" height="700" fill="#f7f1e7"/>${lines}${shapes}</svg>`;
+}
+
+function exportTabHtml(tab: DocumentTab) {
+  if (tab.kind === "drawing") return tab.drawingData ? `<img class="visual-export" src="${tab.drawingData}" alt="Dibujo"/>` : "<p>Lienzo vacío</p>";
+  if (tab.kind === "flowchart") return flowSvg(tab);
+  return tab.content;
+}
+
+async function createExportSurface(doc: WorkspaceDocument, tabs: DocumentTab[], state: WorkspaceState) {
+  const surface = document.createElement("div");
+  surface.className = "lumina-export-surface";
+  // html-to-image preserves the element's computed position in its SVG clone.
+  // Keeping the surface far outside the viewport therefore produces a valid but
+  // empty bitmap in Chromium. Render it on-screen, above the app, for the brief
+  // capture window and remove it immediately afterwards.
+  surface.style.cssText = `position:fixed;left:0;top:0;width:${state.documentWidth === "wide" ? 1040 : state.documentWidth === "compact" ? 680 : 800}px;background:#fbf8f2;color:#33261f;padding:54px;font-family:${state.editorFont === "sans" ? "Arial,sans-serif" : state.editorFont === "mono" ? "monospace" : "Georgia,serif"};font-size:${state.fontSize === "small" ? 14 : state.fontSize === "large" ? 18 : 16}px;line-height:${state.lineHeight === "compact" ? 1.45 : state.lineHeight === "relaxed" ? 2.05 : 1.75};z-index:2147483647;pointer-events:none;`;
+  surface.innerHTML = `<header class="export-cover"><small>LÚMINA · AGENDA PERSONAL</small><h1>${escapeHtml(doc.title)}</h1></header>${tabs.map((tab) => `<section class="export-tab"><h2 class="export-tab-title">${escapeHtml(tab.title)}</h2><div class="export-content">${exportTabHtml(tab)}</div></section>`).join("")}`;
+  const style = document.createElement("style");
+  style.textContent = `.lumina-export-surface *{box-sizing:border-box}.export-cover{padding-bottom:24px;border-bottom:1px solid #cfc1ac;margin-bottom:34px}.export-cover small{letter-spacing:.18em;color:#6f7f5a;font:700 10px Arial}.export-cover h1{font-size:42px;line-height:1.15;margin:10px 0}.export-tab{break-inside:avoid;margin-bottom:42px}.export-tab+.export-tab{border-top:1px solid #cfc1ac;padding-top:32px}.export-tab-title{font:600 25px Georgia;margin:0 0 24px}.export-content h1{font:600 36px/1.2 Georgia}.export-content h2{font:600 24px/1.25 Georgia;margin-top:28px}.export-content h3{font:600 19px/1.3 Georgia}.export-content img,.export-content svg{display:block;max-width:100%;height:auto;margin:24px auto}.export-content figure{break-inside:avoid;margin:24px 0}.export-content figcaption{text-align:center;color:#7e7166;font:12px Arial}.export-content table{border-collapse:collapse;width:100%;break-inside:avoid}.export-content th,.export-content td{border:1px solid #cfc1ac;padding:9px}.export-content pre{white-space:pre-wrap;background:#201b18;color:#f7f2e8;padding:18px;border-radius:8px;break-inside:avoid}.export-content blockquote{border-left:3px solid #6f7f5a;padding:14px 20px;background:#f0ecdf}.visual-export{width:100%}`;
+  surface.appendChild(style); document.body.appendChild(surface);
+  await document.fonts.ready;
+  const images = Array.from(surface.querySelectorAll("img"));
+  await Promise.all(images.map((image) => image.complete && image.naturalWidth ? Promise.resolve() : new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("No fue posible cargar una imagen para exportarla.")); })));
+  return surface;
+}
+
+function safeSliceY(canvas: HTMLCanvasElement, desired: number, min: number) {
+  const context = canvas.getContext("2d", { willReadFrequently: true }); if (!context) return desired;
+  const start = min, end = Math.min(canvas.height - 1, desired + 30), width = canvas.width;
+  const blankRow = (y: number) => { const data = context.getImageData(0, Math.max(0, y), width, 2).data; let colored = 0; for (let i = 0; i < data.length; i += 16) if (data[i] < 242 || data[i + 1] < 239 || data[i + 2] < 232) colored++; return colored < width * .004; };
+  // Require a real whitespace band. A single blank scanline also appears
+  // between two lines of the same paragraph or list and caused awkward cuts.
+  for (let y = desired; y >= start; y -= 4) if (blankRow(y - 18) && blankRow(y) && blankRow(y + 18)) return y;
+  return Math.min(end, desired);
+}
+
+function contentBottomY(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return canvas.height;
+  for (let y = canvas.height - 1; y > 0; y -= 4) {
+    const data = context.getImageData(0, y, canvas.width, 2).data;
+    for (let i = 0; i < data.length; i += 16) {
+      if (data[i] < 242 || data[i + 1] < 239 || data[i + 2] < 232) return Math.min(canvas.height, y + 96);
+    }
+  }
+  return Math.min(canvas.height, 1);
+}
+
 export async function exportWorkspaceDocument(doc: WorkspaceDocument, state: WorkspaceState, options: ExportOptions, target?: HTMLElement | null) {
   const tabs = selectedTabs(doc, options.scope);
   const base = cleanName(options.filename);
@@ -70,18 +126,21 @@ export async function exportWorkspaceDocument(doc: WorkspaceDocument, state: Wor
     return;
   }
   if (options.format === "pdf") {
-    const { jsPDF } = await import("jspdf");
-    const pdf = new jsPDF({ orientation: options.orientation, format: options.pageSize });
-    const width = pdf.internal.pageSize.getWidth() - 30;
-    const lines = pdf.splitTextToSize(`${doc.title}\n\n${combinedText}`, width) as string[];
-    let y = 18;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    lines.forEach((line) => {
-      if (y > pdf.internal.pageSize.getHeight() - 16) { pdf.addPage(); y = 18; }
-      pdf.text(line, 15, y); y += 6;
-    });
-    pdf.save(`${base}.pdf`);
+    const [{ jsPDF }, { toCanvas }] = await Promise.all([import("jspdf"), import("html-to-image")]);
+    const surface = await createExportSurface(doc, tabs, state);
+    try {
+      const canvas = await toCanvas(surface, { pixelRatio: 2, backgroundColor: "#fbf8f2", cacheBust: true, skipFonts: false });
+      const pdf = new jsPDF({ orientation: options.orientation, format: options.pageSize, unit: "mm", compress: true });
+      const pageWidth = pdf.internal.pageSize.getWidth(), pageHeight = pdf.internal.pageSize.getHeight(), margin = 10, usableW = pageWidth - margin * 2, usableH = pageHeight - margin * 2;
+      const sliceHeight = Math.floor(canvas.width * usableH / usableW), pageContentHeight = Math.max(1, sliceHeight - 160), effectiveHeight = contentBottomY(canvas); let offset = 0, page = 0;
+      while (offset < effectiveHeight) {
+        const desired = Math.min(effectiveHeight, offset + pageContentHeight); const end = desired < effectiveHeight ? safeSliceY(canvas, desired, offset + Math.floor(pageContentHeight * .55)) : desired; const height = Math.max(1, end - offset);
+        const pageCanvas = document.createElement("canvas"); pageCanvas.width = canvas.width; pageCanvas.height = height; pageCanvas.getContext("2d")?.drawImage(canvas, 0, offset, canvas.width, height, 0, 0, canvas.width, height);
+        if (page > 0) pdf.addPage(); const renderedH = height * usableW / canvas.width; pdf.addImage(pageCanvas.toDataURL("image/jpeg", .94), "JPEG", margin, margin, usableW, renderedH, undefined, "FAST");
+        offset = end; page++;
+      }
+      pdf.save(`${base}.pdf`);
+    } finally { surface.remove(); }
     return;
   }
   if (options.format === "docx") {
@@ -126,4 +185,3 @@ export function downloadBackup(state: WorkspaceState) {
   const payload = { format: "lumina-workspace", version: 1, exportedAt: new Date().toISOString(), state };
   download(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `lumina-backup-${new Date().toISOString().slice(0, 10)}.json`);
 }
-

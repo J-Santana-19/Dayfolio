@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookMarked, CalendarDays, Check, ChevronRight, Clock3, Copy, FileDown, Heart, Menu, MoreHorizontal, Plus, Search, Settings2, Sparkles, Trash2, X } from "lucide-react";
+import { BookMarked, CalendarDays, Check, ChevronRight, Clock3, Copy, FileDown, Focus, Heart, Maximize2, Menu, MoreHorizontal, Plus, Search, Settings2, Sparkles, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Sidebar } from "@/src/components/sidebar";
 import { RichEditor } from "@/src/editor/rich-editor";
 import { DrawingCanvas } from "@/src/drawing/drawing-canvas";
@@ -28,6 +28,7 @@ export function WorkspaceApp() {
   const [tabMenu, setTabMenu] = useState(false);
   const [docMenu, setDocMenu] = useState(false);
   const [toast, setToast] = useState("");
+  const [focusMode, setFocusMode] = useState(false);
   const exportTarget = useRef<HTMLDivElement>(null);
 
   const openDocument = (id: string) => { setState((current) => ({ ...current, activeDocumentId: id })); setView("document"); setShowVersions(false); };
@@ -37,11 +38,12 @@ export function WorkspaceApp() {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
-      if (event.key === "Escape") { setDialog(null); setTabMenu(false); setDocMenu(false); }
+      if (event.key === "Escape") { setDialog(null); setTabMenu(false); setDocMenu(false); setFocusMode(false); }
       else if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); setDialog("commands"); }
       else if (mod && event.shiftKey && event.key.toLowerCase() === "e" && view === "document") { event.preventDefault(); setDialog("export"); }
       else if (mod && event.key.toLowerCase() === "k") { event.preventDefault(); setDialog("search"); }
       else if (mod && event.key.toLowerCase() === "s" && view === "document") { event.preventDefault(); saveVersion("Guardado manual"); setToast("Versión guardada"); }
+      else if (mod && event.shiftKey && event.key.toLowerCase() === "f") { event.preventDefault(); setFocusMode((value) => !value); }
     };
     window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler);
   }, [saveVersion, view]);
@@ -63,7 +65,8 @@ export function WorkspaceApp() {
   if (!ready || !activeDocument || !activeTab) return <div className="app-loading"><div className="brand-mark">❧</div><p>Abriendo tu agenda…</p></div>;
   const wordCount = activeTab.kind === "document" ? activeTab.content.replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length : 0;
   const style = { "--accent": state.accent } as React.CSSProperties;
-  const appClasses = `workspace-app theme-${state.theme} width-${state.documentWidth} editor-font-${state.editorFont} font-size-${state.fontSize} line-height-${state.lineHeight} ${state.reduceMotion ? "reduce-motion" : ""}`;
+  const appClasses = `workspace-app theme-${state.theme} width-${state.documentWidth} editor-font-${state.editorFont} font-size-${state.fontSize} line-height-${state.lineHeight} ${state.reduceMotion ? "reduce-motion" : ""} ${focusMode ? "focus-mode" : ""}`;
+  const setZoom = (value: number) => setState((current) => ({ ...current, workspaceZoom: Math.max(50, Math.min(150, value)) }));
 
   const duplicateDocument = () => {
     const copy: WorkspaceDocument = structuredClone(activeDocument);
@@ -88,8 +91,8 @@ export function WorkspaceApp() {
         <div className="document-heading"><button className="document-emoji" title="Cambiar icono" onClick={() => { const emoji = window.prompt("Escribe un emoji o símbolo", activeDocument.emoji); if (emoji?.trim()) patchDocument(activeDocument.id, (doc) => ({ ...doc, emoji: emoji.trim().slice(0, 3) })); }}>{activeDocument.emoji}</button><div className="title-stack"><span>{activeDocument.journalDate ? new Intl.DateTimeFormat("es-PA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${activeDocument.journalDate}T12:00:00`)) : activeDocument.folder}</span><input value={activeDocument.title} aria-label="Título del documento" onChange={(event) => patchDocument(activeDocument.id, (doc) => ({ ...doc, title: event.target.value, updatedAt: Date.now() }))} /></div><div className="doc-menu-wrap"><button className="icon-button quiet" aria-label="Opciones del documento" onClick={() => setDocMenu((value) => !value)}><MoreHorizontal /></button>{docMenu && <div className="document-menu"><button onClick={() => { patchDocument(activeDocument.id, (doc) => ({ ...doc, favorite: !doc.favorite })); setDocMenu(false); }}><Heart /> {activeDocument.favorite ? "Quitar de favoritos" : "Añadir a favoritos"}</button><button onClick={duplicateDocument}><Copy /> Duplicar documento</button><button onClick={() => { setDialog("settings"); setDocMenu(false); }}><Settings2 /> Preferencias</button><button className="danger" onClick={moveToTrash}><Trash2 /> Mover a papelera</button></div>}</div></div>
         <div className="tag-line">{activeDocument.tags.map((tag) => <button key={tag} title="Eliminar etiqueta" onClick={() => patchDocument(activeDocument.id, (doc) => ({ ...doc, tags: doc.tags.filter((item) => item !== tag) }))}>#{tag}</button>)}<button onClick={() => { const tag = window.prompt("Nueva etiqueta"); if (tag) patchDocument(activeDocument.id, (doc) => ({ ...doc, tags: [...new Set([...doc.tags, tag.replace(/^#/, "").trim()])] })); }}><Plus /> Etiqueta</button></div>
         <div className="tabs-bar"><div className="tabs-scroll">{activeDocument.tabs.map((tab) => <div key={tab.id} className={`tab ${tab.id === activeTab.id ? "active" : ""}`} style={{ "--tab-color": tab.color } as React.CSSProperties}><button onClick={() => patchDocument(activeDocument.id, (doc) => ({ ...doc, activeTabId: tab.id }))}><span>{tab.icon}</span>{tab.title}</button>{activeDocument.tabs.length > 1 && tab.id === activeTab.id && <button className="tab-close" aria-label="Cerrar pestaña" onClick={() => deleteTab(tab.id)}><X /></button>}</div>)}</div><div className="tab-add-wrap"><button className="tab-add" onClick={() => setTabMenu((value) => !value)}><Plus /> Añadir</button>{tabMenu && <div className="tab-menu"><button onClick={() => { addTab("document"); setTabMenu(false); }}>✎ Página escrita</button><button onClick={() => { addTab("drawing"); setTabMenu(false); }}>⌁ Lienzo de dibujo</button><button onClick={() => { addTab("flowchart"); setTabMenu(false); }}>◇ Diagrama de flujo</button></div>}</div></div>
-        <div className="content-area" ref={exportTarget}>{activeTab.kind === "document" && <RichEditor key={activeTab.id} content={activeTab.content} spellCheck={state.spellCheck} showToolbar={state.showToolbar} onChange={(content) => updateActiveTab({ content })} />}{activeTab.kind === "drawing" && <DrawingCanvas key={activeTab.id} data={activeTab.drawingData} onChange={(drawingData) => updateActiveTab({ drawingData })} />}{activeTab.kind === "flowchart" && <FlowchartEditor key={activeTab.id} nodes={activeTab.flowNodes ?? []} connections={activeTab.flowConnections ?? []} onChange={(flowNodes, flowConnections) => updateActiveTab({ flowNodes, flowConnections })} />}</div>
-        <footer className="statusbar"><div><span>{activeTab.kind === "document" ? `${wordCount} palabras` : activeTab.kind === "drawing" ? "Lienzo 1200 × 760" : `${activeTab.flowNodes?.length ?? 0} nodos`}</span><span>Última edición {formatRelative(activeDocument.updatedAt)}</span></div><div><span>{activeTab.kind === "document" ? "Página continua" : activeTab.kind === "drawing" ? "Dibujo" : "Simulación"}</span><button onClick={() => setDialog("commands")}><Sparkles /> Comandos</button></div></footer>
+        <div className="content-area" ref={exportTarget}>{activeTab.kind === "document" && <RichEditor key={activeTab.id} content={activeTab.content} spellCheck={state.spellCheck} showToolbar={state.showToolbar} toolbarMode={state.toolbarMode} onToolbarModeChange={(toolbarMode) => setState((current) => ({ ...current, toolbarMode }))} zoom={state.workspaceZoom} onChange={(content) => updateActiveTab({ content })} />}{activeTab.kind === "drawing" && <DrawingCanvas key={activeTab.id} data={activeTab.drawingData} onChange={(drawingData) => updateActiveTab({ drawingData })} />}{activeTab.kind === "flowchart" && <FlowchartEditor key={activeTab.id} nodes={activeTab.flowNodes ?? []} connections={activeTab.flowConnections ?? []} snapToGrid={state.snapToGrid} gridSize={state.gridSize} zoom={state.workspaceZoom} onChange={(flowNodes, flowConnections) => updateActiveTab({ flowNodes, flowConnections })} />}</div>
+        <footer className="statusbar"><div><span>{activeTab.kind === "document" ? `${wordCount} palabras · ${activeTab.content.replace(/<[^>]*>/g, "").length} caracteres` : activeTab.kind === "drawing" ? "Lienzo 1200 × 760" : `${activeTab.flowNodes?.length ?? 0} nodos · ${activeTab.flowConnections?.length ?? 0} conexiones`}</span><span>Última edición {formatRelative(activeDocument.updatedAt)}</span></div><div className="workspace-controls"><button title="Alejar" onClick={() => setZoom(state.workspaceZoom - 25)}><ZoomOut /></button><select aria-label="Zoom del espacio" value={state.workspaceZoom} onChange={(e) => setZoom(Number(e.target.value))}><option value="50">50%</option><option value="75">75%</option><option value="100">100%</option><option value="125">125%</option><option value="150">150%</option></select><button title="Acercar" onClick={() => setZoom(state.workspaceZoom + 25)}><ZoomIn /></button><button title="Modo concentración (Ctrl+Shift+F)" className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Focus /></button><button title="Pantalla completa" onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()}><Maximize2 /></button><button onClick={() => setDialog("commands")}><Sparkles /> Comandos</button></div></footer>
       </>}
     </main>
     {showVersions && view === "document" && <VersionPanel versions={activeDocument.versions} onSave={() => { saveVersion(); setToast("Versión guardada"); }} onRestore={restoreVersion} onClose={() => setShowVersions(false)} />}

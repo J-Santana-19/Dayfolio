@@ -1,13 +1,17 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-to-interactive-role */
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
-import { AlignCenter, AlignLeft, AlignRight, Bold, CheckSquare, Code2, Highlighter, ImagePlus, Italic, Link2, List, ListOrdered, Minus, Quote, Redo2, Table2, Underline, Undo2 } from "lucide-react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { AlignCenter, AlignLeft, AlignRight, Bold, CheckSquare, ChevronDown, ChevronUp, Code2, Highlighter, ImagePlus, Italic, Link2, List, ListOrdered, Minus, MoveDown, MoveUp, Palette, Quote, Redo2, Search, Table2, Trash2, Underline, Undo2 } from "lucide-react";
 
 interface RichEditorProps {
   content: string;
   onChange: (html: string) => void;
   spellCheck?: boolean;
   showToolbar?: boolean;
+  toolbarMode?: "compact" | "expanded";
+  onToolbarModeChange?: (mode: "compact" | "expanded") => void;
+  zoom?: number;
 }
 
 const commands = [
@@ -18,76 +22,95 @@ const commands = [
   { label: "Cita", hint: "Destaca una idea", command: "formatBlock", value: "blockquote", icon: "❝" },
 ] as const;
 
-export function RichEditor({ content, onChange, spellCheck = true, showToolbar = true }: RichEditorProps) {
+export function RichEditor({ content, onChange, spellCheck = true, showToolbar = true, toolbarMode = "compact", onToolbarModeChange, zoom = 100 }: RichEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [imageWidth, setImageWidth] = useState(70);
+  const [context, setContext] = useState<{ x: number; y: number; kind: "image" | "text" } | null>(null);
   const lastContent = useRef("");
+  const savedRange = useRef<Range | null>(null);
 
   useLayoutEffect(() => {
     if (ref.current && content !== lastContent.current) { ref.current.innerHTML = content; lastContent.current = content; }
   }, [content]);
 
-  const sync = () => {
+  const sync = useCallback(() => {
     if (!ref.current) return;
     const html = ref.current.innerHTML;
     lastContent.current = html;
     onChange(html);
-  };
+  }, [onChange]);
 
-  const exec = (command: string, value?: string) => {
+  const exec = useCallback((command: string, value?: string) => {
     ref.current?.focus();
-    if (command === "table") {
-      document.execCommand("insertHTML", false, "<table><thead><tr><th>Encabezado</th><th>Encabezado</th><th>Encabezado</th></tr></thead><tbody><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr></tbody></table><p><br></p>");
-    } else if (command === "createLink") {
-      const url = window.prompt("Dirección del enlace");
-      if (url) document.execCommand(command, false, url);
-    } else if (command === "insertHorizontalRule") {
-      document.execCommand(command);
-    } else document.execCommand(command, false, value);
+    if (command === "table") document.execCommand("insertHTML", false, "<table><thead><tr><th>Encabezado</th><th>Encabezado</th><th>Encabezado</th></tr></thead><tbody><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr></tbody></table><p><br></p>");
+    else if (command === "createLink") { const url = window.prompt("Dirección del enlace"); if (url) document.execCommand(command, false, url); }
+    else if (command === "foreColor" || command === "hiliteColor") document.execCommand(command, false, value);
+    else document.execCommand(command, false, value);
     sync();
-  };
+  }, [sync]);
 
-  const insertImageFile = (file: File) => {
+  const insertImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 12 * 1024 * 1024) { window.alert("La imagen supera 12 MB. Reduce su tamaño e intenta nuevamente."); return; }
+    const selection = window.getSelection();
+    if (selection?.rangeCount && ref.current?.contains(selection.anchorNode)) savedRange.current = selection.getRangeAt(0).cloneRange();
     const reader = new FileReader();
-    reader.onload = () => { document.execCommand("insertHTML", false, `<figure contenteditable="false"><img src="${reader.result}" alt="Imagen pegada"><figcaption contenteditable="true">Añadir pie de imagen</figcaption></figure><p><br></p>`); sync(); };
+    reader.onerror = () => window.alert("No fue posible cargar esta imagen.");
+    reader.onload = () => {
+      ref.current?.focus();
+      if (savedRange.current) { const current = window.getSelection(); current?.removeAllRanges(); current?.addRange(savedRange.current); }
+      const src = typeof reader.result === "string" ? reader.result : "";
+      document.execCommand("insertHTML", false, `<figure class="editor-image" contenteditable="false" style="width:70%;margin:24px auto"><img src="${src}" alt="Imagen insertada" style="width:100%;height:auto"><figcaption>Imagen</figcaption></figure><p><br></p>`);
+      sync();
+    };
     reader.readAsDataURL(file);
+  }, [sync]);
+
+  const mutateImage = (action: "delete" | "duplicate" | "up" | "down" | "left" | "center" | "right") => {
+    const image = selectedImage;
+    const figure = image?.closest("figure");
+    if (!figure) return;
+    if (action === "delete") figure.remove();
+    else if (action === "duplicate") figure.parentNode?.insertBefore(figure.cloneNode(true), figure.nextSibling);
+    else if (action === "up" && figure.previousElementSibling) figure.parentElement?.insertBefore(figure, figure.previousElementSibling);
+    else if (action === "down" && figure.nextElementSibling) figure.parentElement?.insertBefore(figure.nextElementSibling, figure);
+    else if (action === "left") (figure as HTMLElement).style.margin = "24px auto 24px 0";
+    else if (action === "right") (figure as HTMLElement).style.margin = "24px 0 24px auto";
+    else if (action === "center") (figure as HTMLElement).style.margin = "24px auto";
+    setSelectedImage(null); sync();
   };
 
-  return (
-    <div className="editor-shell">
-      {showToolbar && <div className="format-toolbar" role="toolbar" aria-label="Formato de texto">
-        <select aria-label="Estilo de párrafo" onChange={(event) => exec("formatBlock", event.target.value)} defaultValue="p"><option value="p">Texto</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option></select>
-        <ToolbarButton label="Deshacer" onClick={() => exec("undo")}><Undo2 size={16} /></ToolbarButton><ToolbarButton label="Rehacer" onClick={() => exec("redo")}><Redo2 size={16} /></ToolbarButton><span className="toolbar-separator" />
-        <ToolbarButton label="Negrita" onClick={() => exec("bold")}><Bold size={16} /></ToolbarButton><ToolbarButton label="Cursiva" onClick={() => exec("italic")}><Italic size={16} /></ToolbarButton><ToolbarButton label="Subrayado" onClick={() => exec("underline")}><Underline size={16} /></ToolbarButton><ToolbarButton label="Resaltar" onClick={() => exec("hiliteColor", "#fff2a8")}><Highlighter size={16} /></ToolbarButton><span className="toolbar-separator" />
-        <ToolbarButton label="Alinear a la izquierda" onClick={() => exec("justifyLeft")}><AlignLeft size={16} /></ToolbarButton><ToolbarButton label="Centrar" onClick={() => exec("justifyCenter")}><AlignCenter size={16} /></ToolbarButton><ToolbarButton label="Alinear a la derecha" onClick={() => exec("justifyRight")}><AlignRight size={16} /></ToolbarButton>
-        <ToolbarButton label="Lista" onClick={() => exec("insertUnorderedList")}><List size={16} /></ToolbarButton><ToolbarButton label="Lista numerada" onClick={() => exec("insertOrderedList")}><ListOrdered size={16} /></ToolbarButton><ToolbarButton label="Checklist" onClick={() => exec("insertUnorderedList")}><CheckSquare size={16} /></ToolbarButton><span className="toolbar-separator" />
-        <ToolbarButton label="Enlace" onClick={() => exec("createLink")}><Link2 size={16} /></ToolbarButton><ToolbarButton label="Cita" onClick={() => exec("formatBlock", "blockquote")}><Quote size={16} /></ToolbarButton><ToolbarButton label="Código" onClick={() => exec("formatBlock", "pre")}><Code2 size={16} /></ToolbarButton><ToolbarButton label="Tabla" onClick={() => exec("table")}><Table2 size={16} /></ToolbarButton><ToolbarButton label="Separador" onClick={() => exec("insertHorizontalRule")}><Minus size={16} /></ToolbarButton>
-        <label className="toolbar-button" title="Insertar imagen"><ImagePlus size={16} /><input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && insertImageFile(event.target.files[0])} /></label>
-      </div>}
-      <div className="paper-scroll">
-        <article
-          ref={ref}
-          className="rich-editor"
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={spellCheck}
-          onInput={(event) => {
-            const text = event.currentTarget.innerText;
-            const match = text.match(/(?:^|\s)\/([^\s]*)$/);
-            setSlashOpen(Boolean(match)); setSlashQuery(match?.[1] ?? ""); sync();
-          }}
-          onPaste={(event) => {
-            const image = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"))?.getAsFile();
-            if (image) { event.preventDefault(); insertImageFile(image); }
-          }}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => { const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith("image/")); if (file) { event.preventDefault(); insertImageFile(file); } }}
-        />
-        {slashOpen && <div className="slash-menu"><div className="slash-title">Insertar bloque</div>{commands.filter((item) => item.label.toLowerCase().includes(slashQuery.toLowerCase())).map((item) => <button key={item.label} onClick={() => { document.execCommand("delete"); exec(item.command, "value" in item ? item.value : undefined); setSlashOpen(false); }}><span>{item.icon}</span><span><strong>{item.label}</strong><small>{item.hint}</small></span></button>)}</div>}
-      </div>
+  const resizeImage = (value: number) => { const figure = selectedImage?.closest("figure") as HTMLElement | null; if (!figure) return; figure.style.width = `${value}%`; setImageWidth(value); sync(); };
+
+  return <div className="editor-shell" style={{ "--workspace-zoom": zoom / 100 } as React.CSSProperties}>
+    {showToolbar && <div className={`format-toolbar toolbar-${toolbarMode}`} role="toolbar" aria-label="Formato de texto">
+      <div className="toolbar-group essential"><select aria-label="Estilo de párrafo" onChange={(e) => exec("formatBlock", e.target.value)} defaultValue="p"><option value="p">Texto</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option></select><ToolbarButton label="Deshacer (Ctrl+Z)" onClick={() => exec("undo")}><Undo2 /></ToolbarButton><ToolbarButton label="Rehacer (Ctrl+Y)" onClick={() => exec("redo")}><Redo2 /></ToolbarButton></div>
+      <span className="toolbar-separator" />
+      <div className="toolbar-group essential"><ToolbarButton label="Negrita (Ctrl+B)" onClick={() => exec("bold")}><Bold /></ToolbarButton><ToolbarButton label="Cursiva (Ctrl+I)" onClick={() => exec("italic")}><Italic /></ToolbarButton><ToolbarButton label="Subrayado (Ctrl+U)" onClick={() => exec("underline")}><Underline /></ToolbarButton><ToolbarButton label="Resaltar" onClick={() => exec("hiliteColor", "#fff2a8")}><Highlighter /></ToolbarButton></div>
+      <span className="toolbar-separator expanded-only" />
+      <div className="toolbar-group expanded-only"><select aria-label="Fuente" onChange={(e) => exec("fontName", e.target.value)} defaultValue="Georgia"><option>Georgia</option><option>Arial</option><option>Verdana</option><option>Courier New</option></select><select aria-label="Tamaño del texto" onChange={(e) => exec("fontSize", e.target.value)} defaultValue="3"><option value="2">Pequeño</option><option value="3">Normal</option><option value="4">Grande</option><option value="5">Muy grande</option></select><label className="toolbar-color" title="Color del texto"><Palette /><input aria-label="Color del texto" type="color" defaultValue="#2f231d" onChange={(e) => exec("foreColor", e.target.value)} /></label></div>
+      <span className="toolbar-separator expanded-only" />
+      <div className="toolbar-group expanded-only"><ToolbarButton label="Alinear a la izquierda" onClick={() => exec("justifyLeft")}><AlignLeft /></ToolbarButton><ToolbarButton label="Centrar" onClick={() => exec("justifyCenter")}><AlignCenter /></ToolbarButton><ToolbarButton label="Alinear a la derecha" onClick={() => exec("justifyRight")}><AlignRight /></ToolbarButton><ToolbarButton label="Lista" onClick={() => exec("insertUnorderedList")}><List /></ToolbarButton><ToolbarButton label="Lista numerada" onClick={() => exec("insertOrderedList")}><ListOrdered /></ToolbarButton><ToolbarButton label="Checklist" onClick={() => exec("insertUnorderedList")}><CheckSquare /></ToolbarButton></div>
+      <span className="toolbar-separator expanded-only" />
+      <div className="toolbar-group expanded-only"><ToolbarButton label="Enlace" onClick={() => exec("createLink")}><Link2 /></ToolbarButton><ToolbarButton label="Cita" onClick={() => exec("formatBlock", "blockquote")}><Quote /></ToolbarButton><ToolbarButton label="Código" onClick={() => exec("formatBlock", "pre")}><Code2 /></ToolbarButton><ToolbarButton label="Tabla" onClick={() => exec("table")}><Table2 /></ToolbarButton><ToolbarButton label="Separador" onClick={() => exec("insertHorizontalRule")}><Minus /></ToolbarButton><label className="toolbar-button" title="Insertar imagen"><ImagePlus /><input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && insertImageFile(e.target.files[0])} /></label></div>
+      <button className="toolbar-toggle" aria-label={toolbarMode === "compact" ? "Expandir barra de herramientas" : "Contraer barra de herramientas"} title={toolbarMode === "compact" ? "Mostrar todas las herramientas" : "Mostrar solo lo esencial"} onClick={() => onToolbarModeChange?.(toolbarMode === "compact" ? "expanded" : "compact")}>{toolbarMode === "compact" ? <ChevronDown /> : <ChevronUp />}<span>{toolbarMode === "compact" ? "Más" : "Menos"}</span></button>
+    </div>}
+    {selectedImage && <div className="image-toolbar" role="toolbar" aria-label="Herramientas de imagen"><label>Ancho <input type="range" min="20" max="100" value={imageWidth} onChange={(e) => resizeImage(Number(e.target.value))} /></label><button onClick={() => resizeImage(50)}>50%</button><button onClick={() => resizeImage(75)}>75%</button><button onClick={() => resizeImage(100)}>100%</button><button onClick={() => mutateImage("left")}>Izquierda</button><button onClick={() => mutateImage("center")}>Centro</button><button onClick={() => mutateImage("right")}>Derecha</button><button title="Mover arriba" onClick={() => mutateImage("up")}><MoveUp /></button><button title="Mover abajo" onClick={() => mutateImage("down")}><MoveDown /></button><button onClick={() => mutateImage("duplicate")}>Duplicar</button><button className="danger" onClick={() => mutateImage("delete")}><Trash2 /> Eliminar</button></div>}
+    <div className="paper-scroll">
+      <article ref={ref} className="rich-editor" contentEditable role="textbox" aria-multiline="true" suppressContentEditableWarning spellCheck={spellCheck}
+        onClick={(e) => { setContext(null); const image = (e.target as HTMLElement).closest("img") as HTMLImageElement | null; setSelectedImage(image); if (image) { const figure = image.closest("figure") as HTMLElement | null; const match = figure?.style.width.match(/([\d.]+)%/); setImageWidth(match ? Number(match[1]) : 70); } }}
+        onContextMenu={(e) => { e.preventDefault(); const image = (e.target as HTMLElement).closest("img") as HTMLImageElement | null; setSelectedImage(image); setContext({ x: e.clientX, y: e.clientY, kind: image ? "image" : "text" }); }}
+        onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); exec("redo"); } if (selectedImage && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); mutateImage("delete"); } }}
+        onInput={(e) => { const text = e.currentTarget.innerText; const match = text.match(/(?:^|\s)\/([^\s]*)$/); setSlashOpen(Boolean(match)); setSlashQuery(match?.[1] ?? ""); sync(); }}
+        onPaste={(e) => { const image = Array.from(e.clipboardData.items).find((item) => item.type.startsWith("image/"))?.getAsFile(); if (image) { e.preventDefault(); insertImageFile(image); } }}
+        onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const file = Array.from(e.dataTransfer.files).find((item) => item.type.startsWith("image/")); if (file) { e.preventDefault(); insertImageFile(file); } }} />
+      {slashOpen && <div className="slash-menu"><div className="slash-title">Insertar bloque</div>{commands.filter((item) => item.label.toLowerCase().includes(slashQuery.toLowerCase())).map((item) => <button key={item.label} onClick={() => { document.execCommand("delete"); exec(item.command, "value" in item ? item.value : undefined); setSlashOpen(false); }}><span>{item.icon}</span><span><strong>{item.label}</strong><small>{item.hint}</small></span></button>)}</div>}
     </div>
-  );
+    {context && <div className="editor-context-menu" style={{ left: context.x, top: context.y }} onMouseDown={(e) => e.preventDefault()}>{context.kind === "image" ? <><button onClick={() => mutateImage("duplicate")}>Duplicar imagen</button><button onClick={() => mutateImage("center")}>Centrar</button><button onClick={() => mutateImage("up")}>Traer adelante</button><button onClick={() => mutateImage("down")}>Enviar atrás</button><button className="danger" onClick={() => mutateImage("delete")}>Eliminar</button></> : <><button onClick={() => exec("copy")}>Copiar</button><button onClick={() => exec("cut")}>Cortar</button><button onClick={() => exec("bold")}>Negrita</button><button onClick={() => exec("italic")}>Cursiva</button><button onClick={() => setContext(null)}><Search /> Cerrar</button></>}</div>}
+  </div>;
 }
 
-function ToolbarButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) { return <button className="toolbar-button" title={label} aria-label={label} onMouseDown={(event) => { event.preventDefault(); onClick(); }}>{children}</button>; }
+function ToolbarButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) { return <button className="toolbar-button" title={label} aria-label={label} onMouseDown={(e) => { e.preventDefault(); onClick(); }}>{children}</button>; }
