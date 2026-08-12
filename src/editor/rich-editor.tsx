@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AlignCenter, AlignLeft, AlignRight, Bold, CheckSquare, Code2, Highlighter, ImagePlus, Italic, Link2, List, ListOrdered, Minus, Quote, Redo2, Table2, Underline, Undo2 } from "lucide-react";
 
-interface RichEditorProps { content: string; onChange: (html: string) => void; }
+interface RichEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  spellCheck?: boolean;
+  showToolbar?: boolean;
+}
 
 const commands = [
   { label: "Título grande", hint: "Encabezado H1", command: "formatBlock", value: "h1", icon: "H1" },
@@ -13,13 +18,13 @@ const commands = [
   { label: "Cita", hint: "Destaca una idea", command: "formatBlock", value: "blockquote", icon: "❝" },
 ] as const;
 
-export function RichEditor({ content, onChange }: RichEditorProps) {
+export function RichEditor({ content, onChange, spellCheck = true, showToolbar = true }: RichEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
-  const lastContent = useRef(content);
+  const lastContent = useRef("");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (ref.current && content !== lastContent.current) { ref.current.innerHTML = content; lastContent.current = content; }
   }, [content]);
 
@@ -51,7 +56,7 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
 
   return (
     <div className="editor-shell">
-      <div className="format-toolbar" role="toolbar" aria-label="Formato de texto">
+      {showToolbar && <div className="format-toolbar" role="toolbar" aria-label="Formato de texto">
         <select aria-label="Estilo de párrafo" onChange={(event) => exec("formatBlock", event.target.value)} defaultValue="p"><option value="p">Texto</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option></select>
         <ToolbarButton label="Deshacer" onClick={() => exec("undo")}><Undo2 size={16} /></ToolbarButton><ToolbarButton label="Rehacer" onClick={() => exec("redo")}><Redo2 size={16} /></ToolbarButton><span className="toolbar-separator" />
         <ToolbarButton label="Negrita" onClick={() => exec("bold")}><Bold size={16} /></ToolbarButton><ToolbarButton label="Cursiva" onClick={() => exec("italic")}><Italic size={16} /></ToolbarButton><ToolbarButton label="Subrayado" onClick={() => exec("underline")}><Underline size={16} /></ToolbarButton><ToolbarButton label="Resaltar" onClick={() => exec("hiliteColor", "#fff2a8")}><Highlighter size={16} /></ToolbarButton><span className="toolbar-separator" />
@@ -59,15 +64,14 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
         <ToolbarButton label="Lista" onClick={() => exec("insertUnorderedList")}><List size={16} /></ToolbarButton><ToolbarButton label="Lista numerada" onClick={() => exec("insertOrderedList")}><ListOrdered size={16} /></ToolbarButton><ToolbarButton label="Checklist" onClick={() => exec("insertUnorderedList")}><CheckSquare size={16} /></ToolbarButton><span className="toolbar-separator" />
         <ToolbarButton label="Enlace" onClick={() => exec("createLink")}><Link2 size={16} /></ToolbarButton><ToolbarButton label="Cita" onClick={() => exec("formatBlock", "blockquote")}><Quote size={16} /></ToolbarButton><ToolbarButton label="Código" onClick={() => exec("formatBlock", "pre")}><Code2 size={16} /></ToolbarButton><ToolbarButton label="Tabla" onClick={() => exec("table")}><Table2 size={16} /></ToolbarButton><ToolbarButton label="Separador" onClick={() => exec("insertHorizontalRule")}><Minus size={16} /></ToolbarButton>
         <label className="toolbar-button" title="Insertar imagen"><ImagePlus size={16} /><input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && insertImageFile(event.target.files[0])} /></label>
-      </div>
+      </div>}
       <div className="paper-scroll">
         <article
           ref={ref}
           className="rich-editor"
           contentEditable
-          dangerouslySetInnerHTML={{ __html: content }}
           suppressContentEditableWarning
-          spellCheck
+          spellCheck={spellCheck}
           onInput={(event) => {
             const text = event.currentTarget.innerText;
             const match = text.match(/(?:^|\s)\/([^\s]*)$/);

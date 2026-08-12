@@ -15,7 +15,17 @@ export function useWorkspace() {
 
   useEffect(() => {
     loadWorkspace().then((stored) => {
-      if (stored?.documents?.length) setState(stored);
+      if (stored?.documents?.length) {
+        const defaults = createInitialState();
+        setState({
+          ...defaults,
+          ...stored,
+          documents: stored.documents.map((doc) => ({
+            ...doc,
+            journalDate: doc.journalDate ?? (doc.folder === "Diario" ? localDateKey(new Date(doc.createdAt)) : undefined),
+          })),
+        });
+      }
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
@@ -48,15 +58,21 @@ export function useWorkspace() {
     return doc;
   }, []);
 
-  const createDailyNote = useCallback(() => {
-    const title = new Intl.DateTimeFormat("es-PA", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
-    const existing = state.documents.find((doc) => doc.folder === "Diario" && doc.title.toLowerCase() === title.toLowerCase());
+  const createDailyNoteForDate = useCallback((dateKey: string) => {
+    const date = new Date(`${dateKey}T12:00:00`);
+    const title = new Intl.DateTimeFormat("es-PA", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date);
+    const existing = state.documents.find((doc) => doc.folder === "Diario" && (doc.journalDate === dateKey || doc.title.toLowerCase() === title.toLowerCase()));
     if (existing) { setState((current) => ({ ...current, activeDocumentId: existing.id })); return; }
     const doc = createDocument(title.charAt(0).toUpperCase() + title.slice(1), "Diario");
     doc.emoji = "☀";
-    doc.tabs[0].content = `<p class="eyebrow">DIARIO · HOY</p><h1>${doc.title}</h1><h2>¿Qué hice hoy?</h2><p>Empieza a escribir…</p><h2>¿Qué aprendí?</h2><p><br></p><h2>Pendientes</h2><ul><li><br></li></ul>`;
+    doc.journalDate = dateKey;
+    doc.createdAt = date.getTime();
+    doc.updatedAt = date.getTime();
+    doc.tabs[0].content = `<p class="eyebrow">MI DIARIO · ${dateKey}</p><h1>${doc.title}</h1><p class="lead">Un espacio íntimo para recordar tu día.</p><h2>Resumen del día</h2><p>Empieza a escribir…</p><h2>Gratitud</h2><ul><li><br></li></ul><h2>Pendientes</h2><ul><li><br></li></ul>`;
     setState((current) => ({ ...current, documents: [...current.documents, doc], activeDocumentId: doc.id }));
   }, [state.documents]);
+
+  const createDailyNote = useCallback(() => createDailyNoteForDate(localDateKey(new Date())), [createDailyNoteForDate]);
 
   const addTab = useCallback((kind: TabKind) => {
     if (!activeDocument) return;
@@ -84,5 +100,7 @@ export function useWorkspace() {
     patchDocument(activeDocument.id, (doc) => ({ ...doc, tabs: structuredClone(version.tabs), activeTabId: version.tabs[0]?.id ?? doc.activeTabId, updatedAt: Date.now() }));
   }, [activeDocument, patchDocument]);
 
-  return { state, setState, ready, saveStatus, activeDocument, activeTab, patchDocument, updateActiveTab, addDocument, createDailyNote, addTab, deleteTab, saveVersion, restoreVersion };
+  return { state, setState, ready, saveStatus, activeDocument, activeTab, patchDocument, updateActiveTab, addDocument, createDailyNote, createDailyNoteForDate, addTab, deleteTab, saveVersion, restoreVersion };
 }
+
+function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }

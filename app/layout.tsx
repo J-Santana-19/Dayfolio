@@ -13,18 +13,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lúmina — Tu espacio para pensar",
-  description: "Documenta, dibuja, organiza y convierte ideas en flujos dentro de un espacio personal local-first.",
-  metadataBase: new URL("https://lumina-workspace.sites.openai.com"),
+  title: "Lúmina — Tu agenda personal",
+  description: "Escribe, organiza tus días y conserva tus recuerdos en una agenda digital clásica, privada y local-first.",
+  metadataBase: new URL("https://lumina-espacio-personal.abelzit0.chatgpt.site"),
   openGraph: {
-    title: "Lúmina — Tu espacio para pensar",
-    description: "Documenta, dibuja y organiza ideas en un espacio personal local-first.",
+    title: "Lúmina — Tu agenda personal",
+    description: "Tu historia importa. Escríbela cada día.",
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "Vista del espacio personal Lúmina" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lúmina — Tu espacio para pensar",
-    description: "Documenta, dibuja y organiza ideas en un espacio personal local-first.",
+    title: "Lúmina — Tu agenda personal",
+    description: "Tu historia importa. Escríbela cada día.",
     images: ["/og.png"],
   },
   icons: {

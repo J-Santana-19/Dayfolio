@@ -1,6 +1,16 @@
 # Lúmina
 
-Espacio personal local-first para documentar, dibujar, organizar ideas y ejecutar diagramas de flujo visualmente.
+Agenda personal local-first con estética de diario clásico para escribir, organizar recuerdos y trabajar con recursos visuales.
+
+## Funciones principales
+
+- Editor enriquecido con cursor estable, guardado automático, historial y pestañas.
+- Calendario mensual que reúne las entradas del diario por fecha.
+- Preferencias de apariencia, tipografía, lectura, accesibilidad y copias de seguridad.
+- Búsqueda y paleta de comandos con navegación por teclado.
+- Lienzo con lápiz, borrador, líneas y figuras; diagramas de flujo ejecutables.
+- Papelera con restauración y borrado definitivo.
+- Exportación a PDF, DOCX, Markdown, HTML, TXT, JSON, PNG, JPG, SVG, CSV y XLSX.
 
 ## Desarrollo
 

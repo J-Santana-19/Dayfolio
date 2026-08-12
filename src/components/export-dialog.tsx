@@ -7,7 +7,7 @@ import type { WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
 import { exportWorkspaceDocument, type ExportFormat, type ExportOptions } from "@/src/utils/exporters";
 
 const formats: { id: ExportFormat; label: string; icon: React.ReactNode }[] = [
-  { id: "pdf", label: "PDF", icon: <FileDown /> }, { id: "docx", label: "DOCX", icon: <FileText /> }, { id: "md", label: "Markdown", icon: <FileCode2 /> }, { id: "html", label: "HTML", icon: <FileCode2 /> }, { id: "txt", label: "TXT", icon: <FileText /> }, { id: "json", label: "JSON", icon: <FileJson /> }, { id: "png", label: "PNG", icon: <FileImage /> }, { id: "svg", label: "SVG", icon: <FileImage /> }, { id: "csv", label: "CSV", icon: <FileArchive /> }, { id: "xlsx", label: "XLSX", icon: <FileArchive /> },
+  { id: "pdf", label: "PDF", icon: <FileDown /> }, { id: "docx", label: "DOCX", icon: <FileText /> }, { id: "md", label: "Markdown", icon: <FileCode2 /> }, { id: "html", label: "HTML", icon: <FileCode2 /> }, { id: "txt", label: "TXT", icon: <FileText /> }, { id: "json", label: "JSON", icon: <FileJson /> }, { id: "png", label: "PNG", icon: <FileImage /> }, { id: "jpg", label: "JPG", icon: <FileImage /> }, { id: "svg", label: "SVG", icon: <FileImage /> }, { id: "csv", label: "CSV", icon: <FileArchive /> }, { id: "xlsx", label: "XLSX", icon: <FileArchive /> },
 ];
 
 export function ExportDialog({ doc, state, targetRef, onClose }: { doc: WorkspaceDocument; state: WorkspaceState; targetRef: RefObject<HTMLDivElement | null>; onClose: () => void }) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookMarked, Check, ChevronRight, Clock3, FileDown, Menu, MoreHorizontal, Plus, Search, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { BookMarked, CalendarDays, Check, ChevronRight, Clock3, Copy, FileDown, Heart, Menu, MoreHorizontal, Plus, Search, Settings2, Sparkles, Trash2, X } from "lucide-react";
 import { Sidebar } from "@/src/components/sidebar";
 import { RichEditor } from "@/src/editor/rich-editor";
 import { DrawingCanvas } from "@/src/drawing/drawing-canvas";
@@ -10,71 +10,93 @@ import { ExportDialog } from "@/src/components/export-dialog";
 import { CommandPalette, commandIcons, type CommandAction } from "@/src/components/command-palette";
 import { SettingsDialog } from "@/src/components/settings-dialog";
 import { VersionPanel } from "@/src/components/version-panel";
+import { CalendarView } from "@/src/components/calendar-view";
+import { TrashView } from "@/src/components/trash-view";
+import { createInitialState, uid } from "@/src/database/initial-data";
 import { useWorkspace } from "@/src/hooks/use-workspace";
+import type { WorkspaceDocument } from "@/src/types/workspace";
+
+type MainView = "document" | "calendar" | "trash";
 
 export function WorkspaceApp() {
   const workspace = useWorkspace();
-  const { state, setState, ready, saveStatus, activeDocument, activeTab, patchDocument, updateActiveTab, addDocument, createDailyNote, addTab, deleteTab, saveVersion, restoreVersion } = workspace;
+  const { state, setState, ready, saveStatus, activeDocument, activeTab, patchDocument, updateActiveTab, addDocument, createDailyNote, createDailyNoteForDate, addTab, deleteTab, saveVersion, restoreVersion } = workspace;
+  const [view, setView] = useState<MainView>("document");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [dialog, setDialog] = useState<"export" | "settings" | "commands" | "search" | null>(null);
   const [showVersions, setShowVersions] = useState(false);
   const [tabMenu, setTabMenu] = useState(false);
+  const [docMenu, setDocMenu] = useState(false);
   const [toast, setToast] = useState("");
   const exportTarget = useRef<HTMLDivElement>(null);
+
+  const openDocument = (id: string) => { setState((current) => ({ ...current, activeDocumentId: id })); setView("document"); setShowVersions(false); };
+  const openToday = () => { createDailyNote(); setView("document"); };
+  const newNote = () => { addDocument("Notas"); setView("document"); };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
-      if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); setDialog("commands"); }
-      else if (mod && event.shiftKey && event.key.toLowerCase() === "e") { event.preventDefault(); setDialog("export"); }
+      if (event.key === "Escape") { setDialog(null); setTabMenu(false); setDocMenu(false); }
+      else if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); setDialog("commands"); }
+      else if (mod && event.shiftKey && event.key.toLowerCase() === "e" && view === "document") { event.preventDefault(); setDialog("export"); }
       else if (mod && event.key.toLowerCase() === "k") { event.preventDefault(); setDialog("search"); }
-      else if (mod && event.key.toLowerCase() === "s") { event.preventDefault(); saveVersion("Guardado manual"); setToast("Versión guardada"); }
+      else if (mod && event.key.toLowerCase() === "s" && view === "document") { event.preventDefault(); saveVersion("Guardado manual"); setToast("Versión guardada"); }
     };
     window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler);
-  }, [saveVersion]);
+  }, [saveVersion, view]);
 
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 2200); return () => window.clearTimeout(timer); }, [toast]);
 
-  const searchActions = useMemo<CommandAction[]>(() => state.documents.filter((doc) => !doc.trashed).map((doc) => ({ id: doc.id, label: doc.title, description: `${doc.folder} · ${doc.tags.map((tag) => `#${tag}`).join(" ")}`, icon: <span>{doc.emoji}</span>, action: () => setState((current) => ({ ...current, activeDocumentId: doc.id })) })), [state.documents, setState]);
-  const commands = useMemo<CommandAction[]>(() => [
-    { id: "new", label: "Nueva nota", description: "Crea un documento en Notas", icon: commandIcons.add, action: () => addDocument("Notas") },
-    { id: "daily", label: "Abrir diario de hoy", description: "Crea o abre la entrada del día", icon: <BookMarked />, action: createDailyNote },
-    { id: "draw", label: "Insertar lienzo", description: "Añade una pestaña de dibujo", icon: commandIcons.draw, action: () => addTab("drawing") },
-    { id: "flow", label: "Crear diagrama", description: "Añade una pestaña de flujo ejecutable", icon: commandIcons.flow, action: () => addTab("flowchart") },
-    { id: "export", label: "Exportar documento", description: "PDF, DOCX, Markdown y más", icon: commandIcons.export, action: () => setDialog("export") },
-    { id: "settings", label: "Abrir preferencias", description: "Tema, color y copias de seguridad", icon: commandIcons.settings, action: () => setDialog("settings") },
-    { id: "theme", label: state.theme === "light" ? "Activar tema oscuro" : "Activar tema claro", description: "Cambia la apariencia de Lúmina", icon: state.theme === "light" ? commandIcons.dark : commandIcons.light, action: () => setState((current) => ({ ...current, theme: current.theme === "light" ? "dark" : "light" })) },
-  ], [addDocument, addTab, createDailyNote, setState, state.theme]);
+  const searchActions: CommandAction[] = state.documents.filter((doc) => !doc.trashed).map((doc) => ({ id: doc.id, label: doc.title, description: `${doc.folder} · ${doc.tags.map((tag) => `#${tag}`).join(" ")}`, icon: <span>{doc.emoji}</span>, action: () => openDocument(doc.id) }));
+  const commands: CommandAction[] = [
+    { id: "new", label: "Nueva nota", description: "Crea un documento en Notas", icon: commandIcons.add, action: newNote },
+    { id: "daily", label: "Abrir diario de hoy", description: "Crea o abre la entrada del día", icon: <BookMarked />, action: openToday },
+    { id: "calendar", label: "Abrir calendario", description: "Explora tus entradas por fecha", icon: <CalendarDays />, action: () => setView("calendar") },
+    { id: "draw", label: "Insertar lienzo", description: "Añade una pestaña de dibujo", icon: commandIcons.draw, action: () => { addTab("drawing"); setView("document"); } },
+    { id: "flow", label: "Crear diagrama", description: "Añade una pestaña de flujo ejecutable", icon: commandIcons.flow, action: () => { addTab("flowchart"); setView("document"); } },
+    { id: "export", label: "Exportar documento", description: "PDF, DOCX, Markdown y más", icon: commandIcons.export, action: () => { setView("document"); setDialog("export"); } },
+    { id: "settings", label: "Abrir preferencias", description: "Apariencia, editor, privacidad y copias", icon: commandIcons.settings, action: () => setDialog("settings") },
+    { id: "theme", label: state.theme === "light" ? "Activar noche tinta" : "Activar papel crema", description: "Cambia la atmósfera de Lúmina", icon: state.theme === "light" ? commandIcons.dark : commandIcons.light, action: () => setState((current) => ({ ...current, theme: current.theme === "light" ? "dark" : "light" })) },
+  ];
 
-  if (!ready || !activeDocument || !activeTab) return <div className="app-loading"><div className="brand-mark">L</div><p>Preparando tu espacio…</p></div>;
+  if (!ready || !activeDocument || !activeTab) return <div className="app-loading"><div className="brand-mark">❧</div><p>Abriendo tu agenda…</p></div>;
   const wordCount = activeTab.kind === "document" ? activeTab.content.replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length : 0;
-  return <div className={`workspace-app theme-${state.theme} width-${state.documentWidth}`} style={{ "--accent": state.accent } as React.CSSProperties}>
-    <Sidebar documents={state.documents} activeId={activeDocument.id} collapsed={sidebarCollapsed} onSelect={(id) => setState((current) => ({ ...current, activeDocumentId: id }))} onAdd={() => addDocument("Notas")} onDaily={createDailyNote} onSearch={() => setDialog("search")} onSettings={() => setDialog("settings")} onToggleFavorite={(id) => patchDocument(id, (doc) => ({ ...doc, favorite: !doc.favorite }))} />
+  const style = { "--accent": state.accent } as React.CSSProperties;
+  const appClasses = `workspace-app theme-${state.theme} width-${state.documentWidth} editor-font-${state.editorFont} font-size-${state.fontSize} line-height-${state.lineHeight} ${state.reduceMotion ? "reduce-motion" : ""}`;
+
+  const duplicateDocument = () => {
+    const copy: WorkspaceDocument = structuredClone(activeDocument);
+    copy.id = uid("doc"); copy.title = `${activeDocument.title} — copia`; copy.createdAt = Date.now(); copy.updatedAt = Date.now(); copy.favorite = false; copy.trashed = false; copy.versions = [];
+    copy.tabs = copy.tabs.map((tab) => ({ ...tab, id: uid("tab") })); copy.activeTabId = copy.tabs[0].id;
+    setState((current) => ({ ...current, documents: [...current.documents, copy], activeDocumentId: copy.id })); setDocMenu(false); setToast("Documento duplicado");
+  };
+
+  const moveToTrash = () => {
+    patchDocument(activeDocument.id, (doc) => ({ ...doc, trashed: true, updatedAt: Date.now() }));
+    const next = state.documents.find((doc) => !doc.trashed && doc.id !== activeDocument.id);
+    if (next) setState((current) => ({ ...current, activeDocumentId: next.id }));
+    setDocMenu(false); setToast("Documento enviado a la papelera");
+  };
+
+  return <div className={appClasses} style={style}>
+    <Sidebar documents={state.documents} activeId={activeDocument.id} activeView={view} collapsed={sidebarCollapsed} onSelect={openDocument} onAdd={newNote} onDaily={openToday} onCalendar={() => { setView("calendar"); setShowVersions(false); }} onTrash={() => { setView("trash"); setShowVersions(false); }} onSearch={() => setDialog("search")} onSettings={() => setDialog("settings")} onToggleFavorite={(id) => patchDocument(id, (doc) => ({ ...doc, favorite: !doc.favorite }))} />
     <main className="main-area">
-      <header className="topbar">
-        <button className="icon-button menu-button" aria-label="Mostrar u ocultar barra lateral" onClick={() => setSidebarCollapsed((value) => !value)}><Menu size={19} /></button>
-        <div className="breadcrumbs"><span>{activeDocument.folder}</span><ChevronRight size={14} /><strong>{activeDocument.title}</strong></div>
-        <div className="topbar-actions"><button className="save-state" title="Guardado automático"><span className={saveStatus === "saving" ? "saving-dot" : "saved-dot"} />{saveStatus === "saving" ? "Guardando…" : saveStatus === "error" ? "Error al guardar" : "Guardado"}</button><button className="top-action" onClick={() => setDialog("search")}><Search size={17} /><span>Buscar</span></button><button className="top-action" onClick={() => setShowVersions((value) => !value)}><Clock3 size={17} /><span>Historial</span></button><button className="export-button" onClick={() => setDialog("export")}><FileDown size={17} /><span>Exportar</span></button><button className="avatar" onClick={() => setDialog("settings")}>JS</button></div>
-      </header>
-      <div className="document-heading">
-        <button className="document-emoji" title="Cambiar icono">{activeDocument.emoji}</button>
-        <input value={activeDocument.title} aria-label="Título del documento" onChange={(e) => patchDocument(activeDocument.id, (doc) => ({ ...doc, title: e.target.value, updatedAt: Date.now() }))} />
-        <button className="icon-button quiet" aria-label="Más opciones"><MoreHorizontal /></button>
-      </div>
-      <div className="tag-line">{activeDocument.tags.map((tag) => <span key={tag}>#{tag}</span>)}<button onClick={() => { const tag = window.prompt("Nueva etiqueta"); if (tag) patchDocument(activeDocument.id, (doc) => ({ ...doc, tags: [...new Set([...doc.tags, tag.replace(/^#/, "")])] })); }}><Plus size={13} /> Etiqueta</button></div>
-      <div className="tabs-bar"><div className="tabs-scroll">{activeDocument.tabs.map((tab) => <div key={tab.id} className={`tab ${tab.id === activeTab.id ? "active" : ""}`} style={{ "--tab-color": tab.color } as React.CSSProperties}><button onClick={() => patchDocument(activeDocument.id, (doc) => ({ ...doc, activeTabId: tab.id }))}><span>{tab.icon}</span>{tab.title}</button>{activeDocument.tabs.length > 1 && tab.id === activeTab.id && <button className="tab-close" aria-label="Cerrar pestaña" onClick={() => deleteTab(tab.id)}><X size={12} /></button>}</div>)}</div><div className="tab-add-wrap"><button className="tab-add" onClick={() => setTabMenu((value) => !value)}><Plus size={15} /> Añadir</button>{tabMenu && <div className="tab-menu"><button onClick={() => { addTab("document"); setTabMenu(false); }}>✎ Documento</button><button onClick={() => { addTab("drawing"); setTabMenu(false); }}>⌁ Lienzo de dibujo</button><button onClick={() => { addTab("flowchart"); setTabMenu(false); }}>◇ Diagrama de flujo</button></div>}</div></div>
-      <div className="content-area" ref={exportTarget}>
-        {activeTab.kind === "document" && <RichEditor key={activeTab.id} content={activeTab.content} onChange={(content) => updateActiveTab({ content })} />}
-        {activeTab.kind === "drawing" && <DrawingCanvas key={activeTab.id} data={activeTab.drawingData} onChange={(drawingData) => updateActiveTab({ drawingData })} />}
-        {activeTab.kind === "flowchart" && <FlowchartEditor key={activeTab.id} nodes={activeTab.flowNodes ?? []} connections={activeTab.flowConnections ?? []} onChange={(flowNodes, flowConnections) => updateActiveTab({ flowNodes, flowConnections })} />}
-      </div>
-      <footer className="statusbar"><div><span>{activeTab.kind === "document" ? `${wordCount} palabras` : activeTab.kind === "drawing" ? "Lienzo 1200 × 760" : `${activeTab.flowNodes?.length ?? 0} nodos`}</span><span>Última edición {formatRelative(activeDocument.updatedAt)}</span></div><div><span>{activeTab.kind === "document" ? "Documento infinito" : activeTab.kind === "drawing" ? "Dibujo" : "Simulación"}</span><button onClick={() => setDialog("commands")}><Sparkles size={14} /> Comandos</button></div></footer>
+      <header className="topbar"><button className="icon-button menu-button" aria-label="Mostrar u ocultar barra lateral" onClick={() => setSidebarCollapsed((value) => !value)}><Menu /></button><div className="breadcrumbs"><span>{view === "calendar" ? "Mi agenda" : view === "trash" ? "Organización" : activeDocument.folder}</span><ChevronRight /><strong>{view === "calendar" ? "Calendario" : view === "trash" ? "Papelera" : activeDocument.title}</strong></div><div className="topbar-actions"><button className="save-state" title="Guardado automático"><span className={saveStatus === "saving" ? "saving-dot" : "saved-dot"} />{saveStatus === "saving" ? "Guardando…" : saveStatus === "error" ? "Error al guardar" : "Todo guardado"}</button><button className="top-action" onClick={() => setDialog("search")}><Search /><span>Buscar</span></button>{view === "document" && <><button className="top-action" onClick={() => setShowVersions((value) => !value)}><Clock3 /><span>Historial</span></button><button className="export-button" onClick={() => setDialog("export")}><FileDown /><span>Exportar</span></button></>}<button className="avatar" onClick={() => setDialog("settings")}>JS</button></div></header>
+
+      {view === "calendar" ? <CalendarView documents={state.documents} onOpenDate={(key) => { createDailyNoteForDate(key); setView("document"); }} /> : view === "trash" ? <TrashView documents={state.documents} onRestore={(id) => { patchDocument(id, (doc) => ({ ...doc, trashed: false, updatedAt: Date.now() })); setToast("Documento restaurado"); }} onDelete={(id) => { if (window.confirm("¿Eliminar definitivamente este documento?")) setState((current) => ({ ...current, documents: current.documents.filter((doc) => doc.id !== id) })); }} /> : <>
+        <div className="document-heading"><button className="document-emoji" title="Cambiar icono" onClick={() => { const emoji = window.prompt("Escribe un emoji o símbolo", activeDocument.emoji); if (emoji?.trim()) patchDocument(activeDocument.id, (doc) => ({ ...doc, emoji: emoji.trim().slice(0, 3) })); }}>{activeDocument.emoji}</button><div className="title-stack"><span>{activeDocument.journalDate ? new Intl.DateTimeFormat("es-PA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${activeDocument.journalDate}T12:00:00`)) : activeDocument.folder}</span><input value={activeDocument.title} aria-label="Título del documento" onChange={(event) => patchDocument(activeDocument.id, (doc) => ({ ...doc, title: event.target.value, updatedAt: Date.now() }))} /></div><div className="doc-menu-wrap"><button className="icon-button quiet" aria-label="Opciones del documento" onClick={() => setDocMenu((value) => !value)}><MoreHorizontal /></button>{docMenu && <div className="document-menu"><button onClick={() => { patchDocument(activeDocument.id, (doc) => ({ ...doc, favorite: !doc.favorite })); setDocMenu(false); }}><Heart /> {activeDocument.favorite ? "Quitar de favoritos" : "Añadir a favoritos"}</button><button onClick={duplicateDocument}><Copy /> Duplicar documento</button><button onClick={() => { setDialog("settings"); setDocMenu(false); }}><Settings2 /> Preferencias</button><button className="danger" onClick={moveToTrash}><Trash2 /> Mover a papelera</button></div>}</div></div>
+        <div className="tag-line">{activeDocument.tags.map((tag) => <button key={tag} title="Eliminar etiqueta" onClick={() => patchDocument(activeDocument.id, (doc) => ({ ...doc, tags: doc.tags.filter((item) => item !== tag) }))}>#{tag}</button>)}<button onClick={() => { const tag = window.prompt("Nueva etiqueta"); if (tag) patchDocument(activeDocument.id, (doc) => ({ ...doc, tags: [...new Set([...doc.tags, tag.replace(/^#/, "").trim()])] })); }}><Plus /> Etiqueta</button></div>
+        <div className="tabs-bar"><div className="tabs-scroll">{activeDocument.tabs.map((tab) => <div key={tab.id} className={`tab ${tab.id === activeTab.id ? "active" : ""}`} style={{ "--tab-color": tab.color } as React.CSSProperties}><button onClick={() => patchDocument(activeDocument.id, (doc) => ({ ...doc, activeTabId: tab.id }))}><span>{tab.icon}</span>{tab.title}</button>{activeDocument.tabs.length > 1 && tab.id === activeTab.id && <button className="tab-close" aria-label="Cerrar pestaña" onClick={() => deleteTab(tab.id)}><X /></button>}</div>)}</div><div className="tab-add-wrap"><button className="tab-add" onClick={() => setTabMenu((value) => !value)}><Plus /> Añadir</button>{tabMenu && <div className="tab-menu"><button onClick={() => { addTab("document"); setTabMenu(false); }}>✎ Página escrita</button><button onClick={() => { addTab("drawing"); setTabMenu(false); }}>⌁ Lienzo de dibujo</button><button onClick={() => { addTab("flowchart"); setTabMenu(false); }}>◇ Diagrama de flujo</button></div>}</div></div>
+        <div className="content-area" ref={exportTarget}>{activeTab.kind === "document" && <RichEditor key={activeTab.id} content={activeTab.content} spellCheck={state.spellCheck} showToolbar={state.showToolbar} onChange={(content) => updateActiveTab({ content })} />}{activeTab.kind === "drawing" && <DrawingCanvas key={activeTab.id} data={activeTab.drawingData} onChange={(drawingData) => updateActiveTab({ drawingData })} />}{activeTab.kind === "flowchart" && <FlowchartEditor key={activeTab.id} nodes={activeTab.flowNodes ?? []} connections={activeTab.flowConnections ?? []} onChange={(flowNodes, flowConnections) => updateActiveTab({ flowNodes, flowConnections })} />}</div>
+        <footer className="statusbar"><div><span>{activeTab.kind === "document" ? `${wordCount} palabras` : activeTab.kind === "drawing" ? "Lienzo 1200 × 760" : `${activeTab.flowNodes?.length ?? 0} nodos`}</span><span>Última edición {formatRelative(activeDocument.updatedAt)}</span></div><div><span>{activeTab.kind === "document" ? "Página continua" : activeTab.kind === "drawing" ? "Dibujo" : "Simulación"}</span><button onClick={() => setDialog("commands")}><Sparkles /> Comandos</button></div></footer>
+      </>}
     </main>
-    {showVersions && <VersionPanel versions={activeDocument.versions} onSave={() => { saveVersion(); setToast("Versión guardada"); }} onRestore={restoreVersion} onClose={() => setShowVersions(false)} />}
+    {showVersions && view === "document" && <VersionPanel versions={activeDocument.versions} onSave={() => { saveVersion(); setToast("Versión guardada"); }} onRestore={restoreVersion} onClose={() => setShowVersions(false)} />}
     {dialog === "export" && <ExportDialog doc={activeDocument} state={state} targetRef={exportTarget} onClose={() => setDialog(null)} />}
-    {dialog === "settings" && <SettingsDialog state={state} onChange={setState} onRestore={setState} onClose={() => setDialog(null)} />}
-    <CommandPalette open={dialog === "commands" || dialog === "search"} mode={dialog === "search" ? "search" : "commands"} actions={dialog === "search" ? searchActions : commands} onClose={() => setDialog(null)} />
-    {toast && <div className="toast"><Check size={16} />{toast}</div>}
+    {dialog === "settings" && <SettingsDialog state={state} onChange={setState} onRestore={setState} onReset={() => setState(createInitialState())} onClose={() => setDialog(null)} />}
+    <CommandPalette key={dialog ?? "closed"} open={dialog === "commands" || dialog === "search"} mode={dialog === "search" ? "search" : "commands"} actions={dialog === "search" ? searchActions : commands} onClose={() => setDialog(null)} />
+    {toast && <div className="toast"><Check />{toast}</div>}
   </div>;
 }
 

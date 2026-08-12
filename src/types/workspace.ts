@@ -49,6 +49,7 @@ export interface WorkspaceDocument {
   activeTabId: string;
   tabs: DocumentTab[];
   versions: VersionSnapshot[];
+  journalDate?: string;
 }
 
 export interface WorkspaceState {
@@ -58,5 +59,10 @@ export interface WorkspaceState {
   theme: Theme;
   accent: string;
   documentWidth: "compact" | "comfortable" | "wide";
+  editorFont: "serif" | "sans" | "mono";
+  fontSize: "small" | "medium" | "large";
+  lineHeight: "compact" | "comfortable" | "relaxed";
+  spellCheck: boolean;
+  showToolbar: boolean;
+  reduceMotion: boolean;
 }
-
