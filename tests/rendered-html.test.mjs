@@ -106,3 +106,25 @@ test("ships validation, HTML sanitization and bounded histories", async () => {
   assert.match(flowchart, /MAX_HISTORY = 50/);
   assert.doesNotMatch(manifest, /"xlsx"\s*:/);
 });
+
+test("keeps the video-feedback interactions integrated and responsive", async () => {
+  const [workspace, editor, flowchart, dialog, sanitizer, styles] = await Promise.all([
+    readFile(new URL("../src/components/workspace-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/editor/rich-editor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/flowchart/flowchart-editor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/text-input-dialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/security/sanitize-html.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(workspace, /addEventListener\("change", handler\)/);
+  assert.match(workspace, /mobile-sidebar-scrim/);
+  assert.doesNotMatch(`${workspace}${editor}${flowchart}`, /window\.(?:prompt|alert)\(/);
+  assert.match(dialog, /aria-modal="true"/);
+  assert.match(editor, /command === "checklist"/);
+  assert.match(editor, /onClick=\{onClick\}/);
+  assert.match(editor, /onKeyUp=\{captureSelection\}/);
+  assert.match(sanitizer, /"checklist"/);
+  assert.match(styles, /\.rich-editor a\{/);
+  assert.match(styles, /ul\.checklist/);
+});

@@ -31,6 +31,7 @@ import type {
   FlowNode,
   FlowNodeType,
 } from "@/src/types/workspace";
+import { TextInputDialog } from "@/src/components/text-input-dialog";
 
 interface FlowchartEditorProps {
   nodes: FlowNode[];
@@ -90,6 +91,10 @@ export function FlowchartEditor({
     x: number;
     y: number;
     kind: "node" | "connection" | "canvas";
+  } | null>(null);
+  const [labelDialog, setLabelDialog] = useState<{
+    nodeId: string;
+    value: string;
   } | null>(null);
   const [selectionBox, setSelectionBox] = useState<{
     x: number;
@@ -803,16 +808,7 @@ export function FlowchartEditor({
                     setSelectedConnection(null);
                   }}
                   onDoubleClick={() => {
-                    const label = window.prompt(
-                      "Texto de la figura",
-                      node.label,
-                    );
-                    if (label !== null)
-                      commit(
-                        nodes.map((n) =>
-                          n.id === node.id ? { ...n, label: label.slice(0, 500) } : n,
-                        ),
-                      );
+                    setLabelDialog({ nodeId: node.id, value: node.label });
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -1128,6 +1124,25 @@ export function FlowchartEditor({
           )}
         </div>
       )}
+      <TextInputDialog
+        open={Boolean(labelDialog)}
+        title="Editar figura"
+        label="Texto de la figura"
+        value={labelDialog?.value ?? ""}
+        maxLength={500}
+        confirmLabel="Guardar texto"
+        onChange={(value) => setLabelDialog((current) => current ? { ...current, value } : current)}
+        onCancel={() => setLabelDialog(null)}
+        onConfirm={() => {
+          if (!labelDialog) return;
+          commit(nodes.map((node) =>
+            node.id === labelDialog.nodeId
+              ? { ...node, label: labelDialog.value.trim().slice(0, 500) || nodeMeta[node.type].label }
+              : node,
+          ));
+          setLabelDialog(null);
+        }}
+      />
     </div>
   );
 }

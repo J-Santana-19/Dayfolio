@@ -30,6 +30,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { sanitizeHtml, sanitizeLinkUrl } from "@/src/security/sanitize-html";
+import { TextInputDialog } from "@/src/components/text-input-dialog";
 
 interface RichEditorProps {
   content: string;
@@ -52,7 +53,7 @@ const commands = [
   {
     label: "Lista de tareas",
     hint: "Checklist rápida",
-    command: "insertUnorderedList",
+    command: "checklist",
     icon: "☑",
   },
   { label: "Tabla", hint: "3 filas × 3 columnas", command: "table", icon: "▦" },
@@ -99,6 +100,10 @@ export function RichEditor({
     y: number;
     kind: "image" | "text";
   } | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkValue, setLinkValue] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [editorNotice, setEditorNotice] = useState("");
   const lastContent = useRef("");
   const savedRange = useRef<Range | null>(null);
 
@@ -150,15 +155,17 @@ export function RichEditor({
           "<table><thead><tr><th>Encabezado</th><th>Encabezado</th><th>Encabezado</th></tr></thead><tbody><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr><tr><td>Dato</td><td>Dato</td><td>Dato</td></tr></tbody></table><p><br></p>",
         );
       else if (command === "createLink") {
-        const url = window.prompt("Dirección del enlace");
-        if (url) {
-          const safeUrl = sanitizeLinkUrl(url);
-          if (safeUrl) document.execCommand(command, false, safeUrl);
-          else
-            window.alert(
-              "Usa un enlace http(s), correo, teléfono o enlace interno válido.",
-            );
-        }
+        setLinkValue("");
+        setLinkError("");
+        setLinkDialogOpen(true);
+        return;
+      } else if (command === "checklist") {
+        document.execCommand("insertUnorderedList");
+        const selection = window.getSelection();
+        const origin = selection?.anchorNode;
+        const element = origin instanceof Element ? origin : origin?.parentElement;
+        const list = element?.closest("ul");
+        list?.classList.add("checklist");
       } else if (command === "foreColor" || command === "hiliteColor")
         document.execCommand(command, false, value);
       else document.execCommand(command, false, value);
@@ -167,23 +174,37 @@ export function RichEditor({
     [sync],
   );
 
+  const confirmLink = useCallback(() => {
+    const safeUrl = sanitizeLinkUrl(linkValue);
+    if (!safeUrl) {
+      setLinkError("Usa un enlace http(s), correo, teléfono o enlace interno válido.");
+      return;
+    }
+    ref.current?.focus();
+    const selection = window.getSelection();
+    if (savedRange.current) {
+      selection?.removeAllRanges();
+      selection?.addRange(savedRange.current);
+    }
+    document.execCommand("createLink", false, safeUrl);
+    sync();
+    setLinkDialogOpen(false);
+    setLinkError("");
+  }, [linkValue, sync]);
+
   const insertImageFile = useCallback(
     (file: File) => {
       if (!SAFE_IMAGE_TYPES.has(file.type)) {
-        window.alert(
-          "Formato de imagen no compatible. Usa PNG, JPEG, WebP o GIF.",
-        );
+        setEditorNotice("Formato de imagen no compatible. Usa PNG, JPEG, WebP o GIF.");
         return;
       }
       if (file.size > 12 * 1024 * 1024) {
-        window.alert(
-          "La imagen supera 12 MB. Reduce su tamaño e intenta nuevamente.",
-        );
+        setEditorNotice("La imagen supera 12 MB. Reduce su tamaño e intenta nuevamente.");
         return;
       }
       captureSelection();
       const reader = new FileReader();
-      reader.onerror = () => window.alert("No fue posible cargar esta imagen.");
+      reader.onerror = () => setEditorNotice("No fue posible cargar esta imagen.");
       reader.onload = () => {
         ref.current?.focus();
         if (savedRange.current) {
@@ -374,7 +395,7 @@ export function RichEditor({
             </ToolbarButton>
             <ToolbarButton
               label="Checklist"
-              onClick={() => exec("insertUnorderedList")}
+              onClick={() => exec("checklist")}
             >
               <CheckSquare />
             </ToolbarButton>
@@ -476,6 +497,12 @@ export function RichEditor({
           </button>
         </div>
       )}
+      {editorNotice && (
+        <div className="editor-notice" role="alert">
+          <span>{editorNotice}</span>
+          <button type="button" onClick={() => setEditorNotice("")}>Cerrar</button>
+        </div>
+      )}
       <div className="paper-scroll">
         <article
           ref={ref}
@@ -487,6 +514,17 @@ export function RichEditor({
           spellCheck={spellCheck}
           onClick={(e) => {
             setContext(null);
+            const checklistItem = (e.target as HTMLElement).closest(
+              "ul.checklist > li",
+            ) as HTMLLIElement | null;
+            if (checklistItem) {
+              const bounds = checklistItem.getBoundingClientRect();
+              if (e.clientX === 0 || e.clientX <= bounds.left + 30) {
+                checklistItem.classList.toggle("checked");
+                sync();
+                return;
+              }
+            }
             const image = (e.target as HTMLElement).closest(
               "img",
             ) as HTMLImageElement | null;
@@ -522,15 +560,18 @@ export function RichEditor({
               mutateImage("delete");
             }
           }}
-        onInput={(e) => {
-          captureSelection();
+          onKeyUp={captureSelection}
+          onMouseUp={captureSelection}
+          onBlur={captureSelection}
+          onInput={(e) => {
+            captureSelection();
             const text = e.currentTarget.innerText;
             const match = text.match(/(?:^|\s)\/([^\s]*)$/);
             setSlashOpen(Boolean(match));
-          setSlashQuery(match?.[1] ?? "");
-          sync();
-          window.requestAnimationFrame(ensureCaretVisible);
-        }}
+            setSlashQuery(match?.[1] ?? "");
+            sync();
+            window.requestAnimationFrame(ensureCaretVisible);
+          }}
           onPaste={(e) => {
             e.preventDefault();
             const image = Array.from(e.clipboardData.items)
@@ -620,6 +661,25 @@ export function RichEditor({
           )}
         </div>
       )}
+      <TextInputDialog
+        open={linkDialogOpen}
+        title="Insertar enlace"
+        label="Dirección del enlace"
+        value={linkValue}
+        placeholder="https://ejemplo.com"
+        maxLength={2048}
+        error={linkError}
+        confirmLabel="Insertar enlace"
+        onChange={(value) => {
+          setLinkValue(value);
+          setLinkError("");
+        }}
+        onCancel={() => {
+          setLinkDialogOpen(false);
+          setLinkError("");
+        }}
+        onConfirm={confirmLink}
+      />
     </div>
   );
 }
@@ -638,10 +698,8 @@ function ToolbarButton({
       className="toolbar-button"
       title={label}
       aria-label={label}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
     >
       {children}
     </button>

@@ -37,6 +37,7 @@ import { SettingsDialog } from "@/src/components/settings-dialog";
 import { VersionPanel } from "@/src/components/version-panel";
 import { CalendarView } from "@/src/components/calendar-view";
 import { TrashView } from "@/src/components/trash-view";
+import { TextInputDialog } from "@/src/components/text-input-dialog";
 import {
   createDocument,
   createInitialState,
@@ -69,6 +70,7 @@ export function WorkspaceApp() {
   } = workspace;
   const [view, setView] = useState<MainView>("document");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [dialog, setDialog] = useState<
     "export" | "settings" | "commands" | "search" | null
   >(null);
@@ -77,13 +79,29 @@ export function WorkspaceApp() {
   const [docMenu, setDocMenu] = useState(false);
   const [toast, setToast] = useState("");
   const [focusMode, setFocusMode] = useState(false);
+  const [textDialog, setTextDialog] = useState<{
+    kind: "emoji" | "tag";
+    value: string;
+    error: string;
+  } | null>(null);
   const exportTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      if (window.matchMedia("(max-width: 760px)").matches) setSidebarCollapsed(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const query = window.matchMedia("(max-width: 760px)");
+    let wasMobile = query.matches;
+    const updateViewport = (matches: boolean) => {
+      setIsMobile(matches);
+      if (matches) {
+        setSidebarCollapsed(true);
+      } else if (wasMobile) {
+        setSidebarCollapsed(false);
+      }
+      wasMobile = matches;
+    };
+    updateViewport(query.matches);
+    const handler = (event: MediaQueryListEvent) => updateViewport(event.matches);
+    query.addEventListener("change", handler);
+    return () => query.removeEventListener("change", handler);
   }, []);
 
   const closeMobileSidebar = () => {
@@ -112,6 +130,7 @@ export function WorkspaceApp() {
       const mod = event.ctrlKey || event.metaKey;
       if (event.key === "Escape") {
         setDialog(null);
+        setTextDialog(null);
         setTabMenu(false);
         setDocMenu(false);
         setFocusMode(false);
@@ -328,6 +347,14 @@ export function WorkspaceApp() {
           patchDocument(id, (doc) => ({ ...doc, favorite: !doc.favorite, updatedAt: Date.now() }))
         }
       />
+      {isMobile && !sidebarCollapsed && (
+        <button
+          type="button"
+          className="mobile-sidebar-scrim"
+          aria-label="Cerrar navegación"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
       <main className="main-area">
         <header className="topbar">
           <button
@@ -462,16 +489,11 @@ export function WorkspaceApp() {
                 className="document-emoji"
                 title="Cambiar icono"
                 onClick={() => {
-                  const emoji = window.prompt(
-                    "Escribe un emoji o símbolo",
-                    activeDocument.emoji,
-                  );
-                  if (emoji?.trim())
-                    patchDocument(activeDocument.id, (doc) => ({
-                      ...doc,
-                      emoji: emoji.trim().slice(0, 3),
-                      updatedAt: Date.now(),
-                    }));
+                  setTextDialog({
+                    kind: "emoji",
+                    value: activeDocument.emoji,
+                    error: "",
+                  });
                 }}
               >
                 {activeDocument.emoji}
@@ -562,19 +584,7 @@ export function WorkspaceApp() {
               ))}
               <button
                 onClick={() => {
-                  const tag = window
-                    .prompt("Nueva etiqueta")
-                    ?.replace(/^#/, "")
-                    .trim()
-                    .slice(0, 40);
-                  if (tag)
-                    patchDocument(activeDocument.id, (doc) => ({
-                      ...doc,
-                      tags: doc.tags.some(
-                        (item) => item.toLocaleLowerCase("es") === tag.toLocaleLowerCase("es"),
-                      ) ? doc.tags : [...doc.tags, tag].slice(0, 20),
-                      updatedAt: Date.now(),
-                    }));
+                  setTextDialog({ kind: "tag", value: "", error: "" });
                 }}
               >
                 <Plus /> Etiqueta
@@ -782,6 +792,45 @@ export function WorkspaceApp() {
         mode={dialog === "search" ? "search" : "commands"}
         actions={dialog === "search" ? searchActions : commands}
         onClose={() => setDialog(null)}
+      />
+      <TextInputDialog
+        open={Boolean(textDialog)}
+        title={textDialog?.kind === "emoji" ? "Cambiar icono" : "Nueva etiqueta"}
+        label={textDialog?.kind === "emoji" ? "Emoji o símbolo" : "Nombre de la etiqueta"}
+        value={textDialog?.value ?? ""}
+        maxLength={textDialog?.kind === "emoji" ? 12 : 40}
+        confirmLabel={textDialog?.kind === "emoji" ? "Guardar icono" : "Añadir etiqueta"}
+        error={textDialog?.error}
+        onChange={(value) => setTextDialog((current) => current ? { ...current, value, error: "" } : current)}
+        onCancel={() => setTextDialog(null)}
+        onConfirm={() => {
+          if (!textDialog) return;
+          const value = (textDialog.kind === "tag"
+            ? textDialog.value.replace(/^#/, "")
+            : textDialog.value
+          ).trim();
+          if (!value) {
+            setTextDialog({ ...textDialog, error: "Escribe un valor antes de guardar." });
+            return;
+          }
+          if (textDialog.kind === "emoji") {
+            patchDocument(activeDocument.id, (doc) => ({
+              ...doc,
+              emoji: Array.from(value).slice(0, 3).join(""),
+              updatedAt: Date.now(),
+            }));
+          } else {
+            const tag = value.slice(0, 40);
+            patchDocument(activeDocument.id, (doc) => ({
+              ...doc,
+              tags: doc.tags.some((item) => item.toLocaleLowerCase("es") === tag.toLocaleLowerCase("es"))
+                ? doc.tags
+                : [...doc.tags, tag].slice(0, 20),
+              updatedAt: Date.now(),
+            }));
+          }
+          setTextDialog(null);
+        }}
       />
       {toast && (
         <div className="toast" role="status" aria-live="polite">

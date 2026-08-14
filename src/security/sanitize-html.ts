@@ -8,7 +8,14 @@ const DROP_WITH_CONTENT = new Set([
   "BASE", "BUTTON", "EMBED", "FORM", "IFRAME", "INPUT", "LINK", "MATH", "META",
   "OBJECT", "SCRIPT", "SELECT", "STYLE", "SVG", "TEXTAREA", "VIDEO", "AUDIO",
 ]);
-const SAFE_CLASSES = new Set(["eyebrow", "lead", "editor-image", "visual-export"]);
+const SAFE_CLASSES = new Set([
+  "eyebrow",
+  "lead",
+  "editor-image",
+  "visual-export",
+  "checklist",
+  "checked",
+]);
 
 const SAFE_STYLE_PROPERTIES = new Set([
   "background-color", "border", "border-color", "border-radius", "border-style", "border-width",
