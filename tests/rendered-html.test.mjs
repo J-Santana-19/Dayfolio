@@ -9,7 +9,9 @@ async function render() {
 
   return worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    {
+      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+    },
     { waitUntil() {}, passThroughOnException() {} },
   );
 }
@@ -18,6 +20,9 @@ test("server-renders the Lúmina shell and metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.match(response.headers.get("content-security-policy") ?? "", /object-src 'none'/);
 
   const html = await response.text();
   assert.match(html, /<html lang="es">/i);
@@ -31,7 +36,10 @@ test("server-renders the Lúmina shell and metadata", async () => {
 test("ships the calendar, local persistence and social artwork", async () => {
   const [page, calendar, workspace, editor, layout] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/components/calendar-view.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../src/components/calendar-view.tsx", import.meta.url),
+      "utf8",
+    ),
     readFile(new URL("../src/hooks/use-workspace.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/editor/rich-editor.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -49,13 +57,23 @@ test("ships the calendar, local persistence and social artwork", async () => {
 });
 
 test("ships the productivity, diagram and visual-export upgrades", async () => {
-  const [workspaceApp, flowchart, exporters, settings, workspaceTypes] = await Promise.all([
-    readFile(new URL("../src/components/workspace-app.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/flowchart/flowchart-editor.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/utils/exporters.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/components/settings-dialog.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/types/workspace.ts", import.meta.url), "utf8"),
-  ]);
+  const [workspaceApp, flowchart, exporters, settings, workspaceTypes] =
+    await Promise.all([
+      readFile(
+        new URL("../src/components/workspace-app.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/flowchart/flowchart-editor.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/utils/exporters.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../src/components/settings-dialog.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/types/workspace.ts", import.meta.url), "utf8"),
+    ]);
 
   assert.match(workspaceApp, /focusMode/);
   assert.match(workspaceApp, /workspaceZoom/);
@@ -70,4 +88,21 @@ test("ships the productivity, diagram and visual-export upgrades", async () => {
   assert.match(settings, /toolbarMode/);
   assert.match(workspaceTypes, /"subprocess"/);
   assert.match(workspaceTypes, /strokeWidth/);
+});
+
+test("ships validation, HTML sanitization and bounded histories", async () => {
+  const [validation, sanitizer, drawing, flowchart, manifest] = await Promise.all([
+    readFile(new URL("../src/database/validation.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/security/sanitize-html.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/drawing/drawing-canvas.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/flowchart/flowchart-editor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(validation, /parseWorkspaceBackup/);
+  assert.match(validation, /MAX_BACKUP_BYTES/);
+  assert.match(sanitizer, /DROP_WITH_CONTENT/);
+  assert.match(sanitizer, /sanitizeLinkUrl/);
+  assert.match(drawing, /MAX_HISTORY = 10/);
+  assert.match(flowchart, /MAX_HISTORY = 50/);
+  assert.doesNotMatch(manifest, /"xlsx"\s*:/);
 });

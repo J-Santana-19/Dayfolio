@@ -14,18 +14,20 @@ function openDatabase(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error("La base de datos local está bloqueada por otra pestaña."));
   });
 }
 
-export async function loadWorkspace(): Promise<WorkspaceState | null> {
+export async function loadWorkspace(): Promise<unknown | null> {
   if (typeof indexedDB === "undefined") return null;
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, "readonly");
     const request = transaction.objectStore(STORE_NAME).get(STATE_KEY);
-    request.onsuccess = () => resolve((request.result as WorkspaceState | undefined) ?? null);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => { db.close(); reject(request.error); };
     transaction.oncomplete = () => db.close();
+    transaction.onabort = () => db.close();
   });
 }
 
@@ -36,8 +38,8 @@ export async function saveWorkspace(state: WorkspaceState): Promise<void> {
     const transaction = db.transaction(STORE_NAME, "readwrite");
     transaction.objectStore(STORE_NAME).put(state, STATE_KEY);
     transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
+    transaction.onerror = () => { db.close(); reject(transaction.error); };
+    transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error("El guardado local fue cancelado.")); };
   });
   db.close();
 }
-

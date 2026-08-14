@@ -1,6 +1,9 @@
 import type { DocumentTab, WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
 
-export const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+export const uid = (prefix: string) => {
+  const randomId = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  return `${prefix}-${randomId}`;
+};
 
 export function createDocument(title = "Nota sin título", folder = "Notas"): WorkspaceDocument {
   const now = Date.now();

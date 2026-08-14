@@ -3,6 +3,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Feather, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { WorkspaceDocument } from "@/src/types/workspace";
+import { sanitizeHtml } from "@/src/security/sanitize-html";
 
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -16,14 +17,14 @@ const dateKey = (date: Date) => {
 const stripHtml = (html: string) => {
   if (typeof document === "undefined") return html.replace(/<[^>]+>/g, " ");
   const node = document.createElement("div");
-  node.innerHTML = html;
+  node.innerHTML = sanitizeHtml(html);
   return node.innerText.replace(/\s+/g, " ").trim();
 };
 
 export function CalendarView({ documents, onOpenDate }: { documents: WorkspaceDocument[]; onOpenDate: (key: string) => void }) {
   const [cursor, setCursor] = useState(() => new Date());
   const [selected, setSelected] = useState(() => dateKey(new Date()));
-  const journalByDate = useMemo(() => new Map(documents.filter((doc) => !doc.trashed && doc.folder === "Diario").map((doc) => [doc.journalDate ?? dateKey(new Date(doc.createdAt)), doc])), [documents]);
+  const journalByDate = useMemo(() => new Map(documents.filter((doc) => !doc.trashed && doc.folder === "Diario").sort((a, b) => a.updatedAt - b.updatedAt).map((doc) => [doc.journalDate ?? dateKey(new Date(doc.createdAt)), doc])), [documents]);
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const first = new Date(year, month, 1);

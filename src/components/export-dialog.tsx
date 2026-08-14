@@ -1,21 +1,218 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 "use client";
 
-import { FileArchive, FileCode2, FileDown, FileImage, FileJson, FileText, X } from "lucide-react";
-import { useState, type RefObject } from "react";
+import {
+  FileArchive,
+  FileCode2,
+  FileDown,
+  FileImage,
+  FileJson,
+  FileText,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
-import { exportWorkspaceDocument, type ExportFormat, type ExportOptions } from "@/src/utils/exporters";
+import {
+  exportWorkspaceDocument,
+  type ExportFormat,
+  type ExportOptions,
+} from "@/src/utils/exporters";
 
 const formats: { id: ExportFormat; label: string; icon: React.ReactNode }[] = [
-  { id: "pdf", label: "PDF", icon: <FileDown /> }, { id: "docx", label: "DOCX", icon: <FileText /> }, { id: "md", label: "Markdown", icon: <FileCode2 /> }, { id: "html", label: "HTML", icon: <FileCode2 /> }, { id: "txt", label: "TXT", icon: <FileText /> }, { id: "json", label: "JSON", icon: <FileJson /> }, { id: "png", label: "PNG", icon: <FileImage /> }, { id: "jpg", label: "JPG", icon: <FileImage /> }, { id: "svg", label: "SVG", icon: <FileImage /> }, { id: "csv", label: "CSV", icon: <FileArchive /> }, { id: "xlsx", label: "XLSX", icon: <FileArchive /> },
+  { id: "pdf", label: "PDF", icon: <FileDown /> },
+  { id: "docx", label: "DOCX", icon: <FileText /> },
+  { id: "md", label: "Markdown", icon: <FileCode2 /> },
+  { id: "html", label: "HTML", icon: <FileCode2 /> },
+  { id: "txt", label: "TXT", icon: <FileText /> },
+  { id: "json", label: "JSON", icon: <FileJson /> },
+  { id: "png", label: "PNG", icon: <FileImage /> },
+  { id: "jpg", label: "JPG", icon: <FileImage /> },
+  { id: "svg", label: "SVG", icon: <FileImage /> },
+  { id: "csv", label: "CSV", icon: <FileArchive /> },
+  { id: "xlsx", label: "XLSX", icon: <FileArchive /> },
 ];
 
-export function ExportDialog({ doc, state, targetRef, onClose }: { doc: WorkspaceDocument; state: WorkspaceState; targetRef: RefObject<HTMLDivElement | null>; onClose: () => void }) {
-  const [options, setOptions] = useState<ExportOptions>({ format: "pdf", filename: doc.title, scope: "document", orientation: "portrait", pageSize: "a4", quality: 0.92 });
+export function ExportDialog({
+  doc,
+  state,
+  targetRef,
+  onClose,
+}: {
+  doc: WorkspaceDocument;
+  state: WorkspaceState;
+  targetRef: RefObject<HTMLDivElement | null>;
+  onClose: () => void;
+}) {
+  const [options, setOptions] = useState<ExportOptions>({
+    format: "pdf",
+    filename: doc.title,
+    scope: "document",
+    orientation: "portrait",
+    pageSize: "a4",
+    quality: 0.92,
+  });
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
-  const set = <K extends keyof ExportOptions>(key: K, value: ExportOptions[K]) => setOptions((current) => ({ ...current, [key]: value }));
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { closeRef.current?.focus(); }, []);
+  const set = <K extends keyof ExportOptions>(
+    key: K,
+    value: ExportOptions[K],
+  ) => setOptions((current) => ({ ...current, [key]: value }));
   const pageOptions = options.format === "pdf";
   const qualityOptions = options.format === "jpg";
-  return <dialog open className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="export-dialog" aria-labelledby="export-title"><div className="modal-header"><div><span className="modal-kicker">ARCHIVO</span><h2 id="export-title">Exportar documento</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X /></button></div><div className="export-grid"><section><div className="field-label">Formato</div><div className="format-grid">{formats.map((format) => <button key={format.id} className={options.format === format.id ? "selected" : ""} onClick={() => set("format", format.id)}>{format.icon}<span>{format.label}</span></button>)}</div></section><section className="export-options"><label className="field-label">Nombre del archivo<input value={options.filename} onChange={(e) => set("filename", e.target.value)} /></label><label className="field-label">Contenido<select value={options.scope} onChange={(e) => set("scope", e.target.value as ExportOptions["scope"])}><option value="document">Todas las pestañas</option><option value="tab">Pestaña actual</option></select></label>{pageOptions && <><label className="field-label">Tamaño<select value={options.pageSize} onChange={(e) => set("pageSize", e.target.value as ExportOptions["pageSize"])}><option value="a4">A4</option><option value="letter">Carta</option></select></label><fieldset><legend>Orientación</legend><label><input type="radio" checked={options.orientation === "portrait"} onChange={() => set("orientation", "portrait")} /> Vertical</label><label><input type="radio" checked={options.orientation === "landscape"} onChange={() => set("orientation", "landscape")} /> Horizontal</label></fieldset></>}{qualityOptions && <label className="field-label">Calidad<input type="range" min="0.4" max="1" step="0.05" value={options.quality} onChange={(e) => set("quality", Number(e.target.value))} /></label>}<div className="export-note">El formato {options.format.toUpperCase()} incluirá {options.scope === "document" ? `${doc.tabs.length} pestañas` : "la pestaña actual"}.</div></section></div>{error && <div className="error-banner">{error}</div>}<div className="modal-footer"><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={working} onClick={async () => { setWorking(true); setError(""); try { await exportWorkspaceDocument(doc, state, options, targetRef.current); onClose(); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo exportar el archivo."); } finally { setWorking(false); } }}>{working ? "Preparando…" : "Exportar"}</button></div></div></dialog>;
+  return (
+    <dialog
+      open
+      className="modal-backdrop"
+      aria-labelledby="export-title"
+      aria-modal="true"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="export-dialog" aria-labelledby="export-title">
+        <div className="modal-header">
+          <div>
+            <span className="modal-kicker">ARCHIVO</span>
+            <h2 id="export-title">Exportar documento</h2>
+          </div>
+          <button ref={closeRef} className="icon-button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <div className="export-grid">
+          <section>
+            <div className="field-label">Formato</div>
+            <div className="format-grid">
+              {formats.map((format) => (
+                <button
+                  key={format.id}
+                  className={options.format === format.id ? "selected" : ""}
+                  aria-pressed={options.format === format.id}
+                  onClick={() => set("format", format.id)}
+                >
+                  {format.icon}
+                  <span>{format.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="export-options">
+            <label className="field-label">
+              Nombre del archivo
+              <input
+                maxLength={180}
+                value={options.filename}
+                onChange={(e) => set("filename", e.target.value)}
+              />
+            </label>
+            <label className="field-label">
+              Contenido
+              <select
+                value={options.scope}
+                onChange={(e) =>
+                  set("scope", e.target.value as ExportOptions["scope"])
+                }
+              >
+                <option value="document">Todas las pestañas</option>
+                <option value="tab">Pestaña actual</option>
+              </select>
+            </label>
+            {pageOptions && (
+              <>
+                <label className="field-label">
+                  Tamaño
+                  <select
+                    value={options.pageSize}
+                    onChange={(e) =>
+                      set(
+                        "pageSize",
+                        e.target.value as ExportOptions["pageSize"],
+                      )
+                    }
+                  >
+                    <option value="a4">A4</option>
+                    <option value="letter">Carta</option>
+                  </select>
+                </label>
+                <fieldset>
+                  <legend>Orientación</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      checked={options.orientation === "portrait"}
+                      onChange={() => set("orientation", "portrait")}
+                    />{" "}
+                    Vertical
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      checked={options.orientation === "landscape"}
+                      onChange={() => set("orientation", "landscape")}
+                    />{" "}
+                    Horizontal
+                  </label>
+                </fieldset>
+              </>
+            )}
+            {qualityOptions && (
+              <label className="field-label">
+                Calidad
+                <input
+                  type="range"
+                  min="0.4"
+                  max="1"
+                  step="0.05"
+                  value={options.quality}
+                  onChange={(e) => set("quality", Number(e.target.value))}
+                />
+              </label>
+            )}
+            <div className="export-note">
+              El formato {options.format.toUpperCase()} incluirá{" "}
+              {options.scope === "document"
+                ? `${doc.tabs.length} pestañas`
+                : "la pestaña actual"}
+              .
+            </div>
+          </section>
+        </div>
+        {error && <div className="error-banner">{error}</div>}
+        <div className="modal-footer">
+          <button className="secondary-button" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            className="primary-button"
+            disabled={working}
+            onClick={async () => {
+              setWorking(true);
+              setError("");
+              try {
+                await exportWorkspaceDocument(
+                  doc,
+                  state,
+                  options,
+                  targetRef.current,
+                );
+                onClose();
+              } catch (reason) {
+                setError(
+                  reason instanceof Error
+                    ? reason.message
+                    : "No se pudo exportar el archivo.",
+                );
+              } finally {
+                setWorking(false);
+              }
+            }}
+          >
+            {working ? "Preparando…" : "Exportar"}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
 }

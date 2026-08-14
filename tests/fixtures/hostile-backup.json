@@ -1,0 +1,23 @@
+{
+  "format": "lumina-workspace",
+  "version": 999,
+  "state": {
+    "workspaceName": "  Auditoría segura  ",
+    "activeDocumentId": "missing",
+    "theme": "dangerous",
+    "gridSize": "40",
+    "documents": [{
+      "id": "duplicate",
+      "title": "Prueba <hostil>",
+      "folder": "Notas",
+      "trashed": false,
+      "activeTabId": "missing",
+      "tabs": [{
+        "id": "tab",
+        "kind": "document",
+        "title": "General",
+        "content": "<h1 onclick=\"window.__xss=1\">Contenido seguro</h1><script>window.__xss=2</script><img src=\"x\" onerror=\"window.__xss=3\"><a href=\"javascript:window.__xss=4\">enlace</a><iframe srcdoc=\"<script>window.__xss=5</script>\"></iframe>"
+      }]
+    }]
+  }
+}
