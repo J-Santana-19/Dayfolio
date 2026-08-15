@@ -44,10 +44,14 @@ test("server-renders the Mi Diario shell and metadata", async () => {
 });
 
 test("ships the calendar, local persistence and social artwork", async () => {
-  const [page, calendar, workspace, editor, layout] = await Promise.all([
+  const [page, calendar, calendarStyles, workspace, editor, layout] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(
       new URL("../src/components/calendar-view.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/components/calendar-view.css", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../src/hooks/use-workspace.ts", import.meta.url), "utf8"),
@@ -58,6 +62,10 @@ test("ships the calendar, local persistence and social artwork", async () => {
   assert.match(page, /<WorkspaceApp \/>/);
   assert.match(calendar, /Calendario del diario/);
   assert.match(calendar, /calendar-day/);
+  assert.match(calendar, /"week", "Semana"/);
+  assert.match(calendar, /"list", "Lista"/);
+  assert.match(calendarStyles, /calendar-view-switcher/);
+  assert.match(calendarStyles, /@media \(max-width: 760px\)/);
   assert.match(workspace, /createDailyNoteForDate/);
   assert.match(workspace, /saveWorkspace/);
   assert.match(editor, /useLayoutEffect/);
