@@ -127,4 +127,7 @@ test("keeps the video-feedback interactions integrated and responsive", async ()
   assert.match(sanitizer, /"checklist"/);
   assert.match(styles, /\.rich-editor a\{/);
   assert.match(styles, /ul\.checklist/);
+  assert.match(styles, /list-style-type:disc!important/);
+  assert.match(styles, /list-style-type:decimal!important/);
+  assert.match(styles, /Classic bound notebook/);
 });
