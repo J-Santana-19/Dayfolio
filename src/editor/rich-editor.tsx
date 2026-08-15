@@ -94,6 +94,7 @@ export function RichEditor({
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(
     null,
   );
+  const [selectedCell, setSelectedCell] = useState<HTMLTableCellElement | null>(null);
   const [imageWidth, setImageWidth] = useState(70);
   const [context, setContext] = useState<{
     x: number;
@@ -187,6 +188,8 @@ export function RichEditor({
       selection?.addRange(savedRange.current);
     }
     document.execCommand("createLink", false, safeUrl);
+    const anchor = window.getSelection()?.anchorNode?.parentElement?.closest("a");
+    anchor?.setAttribute("rel", "noopener noreferrer");
     sync();
     setLinkDialogOpen(false);
     setLinkError("");
@@ -266,6 +269,36 @@ export function RichEditor({
     sync();
   };
 
+  const mutateTable = (action: "add-row" | "add-column" | "delete-row" | "delete-column") => {
+    const cell = selectedCell;
+    const table = cell?.closest("table");
+    const row = cell?.closest("tr");
+    if (!cell || !table || !row) return;
+    const rows = Array.from(table.rows);
+    const cellIndex = cell.cellIndex;
+    if (action === "add-row") {
+      const next = table.insertRow(row.rowIndex + 1);
+      const count = Math.max(1, row.cells.length);
+      for (let index = 0; index < count; index++) {
+        const created = next.insertCell();
+        created.innerHTML = "Dato";
+      }
+      setSelectedCell(next.cells[Math.min(cellIndex, next.cells.length - 1)] ?? null);
+    } else if (action === "add-column") {
+      rows.forEach((currentRow, rowIndex) => {
+        const created = currentRow.insertCell(Math.min(cellIndex + 1, currentRow.cells.length));
+        created.outerHTML = rowIndex === 0 && table.tHead ? "<th>Encabezado</th>" : "<td>Dato</td>";
+      });
+    } else if (action === "delete-row" && rows.length > 1) {
+      table.deleteRow(row.rowIndex);
+      setSelectedCell(table.rows[Math.min(row.rowIndex, table.rows.length - 1)]?.cells[Math.min(cellIndex, (table.rows[0]?.cells.length ?? 1) - 1)] ?? null);
+    } else if (action === "delete-column" && row.cells.length > 1) {
+      rows.forEach((currentRow) => currentRow.cells[cellIndex]?.remove());
+      setSelectedCell(row.cells[Math.min(cellIndex, row.cells.length - 1)] ?? null);
+    }
+    sync();
+  };
+
   return (
     <div
       className="editor-shell"
@@ -337,7 +370,11 @@ export function RichEditor({
               defaultValue="Georgia"
             >
               <option>Georgia</option>
+              <option>Playfair Display</option>
+              <option>Lato</option>
+              <option>Times New Roman</option>
               <option>Arial</option>
+              <option>Trebuchet MS</option>
               <option>Verdana</option>
               <option>Courier New</option>
             </select>
@@ -497,6 +534,16 @@ export function RichEditor({
           </button>
         </div>
       )}
+      {selectedCell && (
+        <div className="table-toolbar" role="toolbar" aria-label="Herramientas de tabla">
+          <strong>Tabla</strong>
+          <button onClick={() => mutateTable("add-row")}>+ Fila</button>
+          <button onClick={() => mutateTable("add-column")}>+ Columna</button>
+          <button onClick={() => mutateTable("delete-row")}>Eliminar fila</button>
+          <button onClick={() => mutateTable("delete-column")}>Eliminar columna</button>
+          <button aria-label="Cerrar herramientas de tabla" onClick={() => setSelectedCell(null)}>×</button>
+        </div>
+      )}
       {editorNotice && (
         <div className="editor-notice" role="alert">
           <span>{editorNotice}</span>
@@ -514,6 +561,18 @@ export function RichEditor({
           spellCheck={spellCheck}
           onClick={(e) => {
             setContext(null);
+            const anchor = (e.target as HTMLElement).closest("a") as HTMLAnchorElement | null;
+            if (anchor) {
+              const href = sanitizeLinkUrl(anchor.getAttribute("href") ?? "");
+              if (href) {
+                e.preventDefault();
+                if (href.startsWith("#") || href.startsWith("/")) window.location.assign(href);
+                else window.open(href, "_blank", "noopener,noreferrer");
+                return;
+              }
+            }
+            const cell = (e.target as HTMLElement).closest("td, th") as HTMLTableCellElement | null;
+            setSelectedCell(cell && ref.current?.contains(cell) ? cell : null);
             const checklistItem = (e.target as HTMLElement).closest(
               "ul.checklist > li",
             ) as HTMLLIElement | null;

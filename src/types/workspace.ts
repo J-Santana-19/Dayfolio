@@ -1,5 +1,7 @@
 export type Theme = "light" | "dark";
 export type TabKind = "document" | "drawing" | "flowchart";
+export type WorkspaceFolder = "Diario" | "Universidad" | "Proyectos" | "Notas";
+export type FolderNames = Record<WorkspaceFolder, string>;
 export type FlowNodeType = "start" | "input" | "decision" | "process" | "output" | "subprocess" | "connector" | "end";
 
 export interface FlowNode {
@@ -64,6 +66,7 @@ export interface WorkspaceDocument {
 
 export interface WorkspaceState {
   workspaceName: string;
+  folderNames: FolderNames;
   documents: WorkspaceDocument[];
   activeDocumentId: string;
   theme: Theme;

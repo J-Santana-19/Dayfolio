@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface TextInputDialogProps {
@@ -79,7 +80,7 @@ export function TextInputDialog({
   }, [open]);
 
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="modal-backdrop inline-dialog-backdrop">
       <button
         type="button"
@@ -126,6 +127,7 @@ export function TextInputDialog({
           <button type="button" className="primary-button" onClick={onConfirm}>{confirmLabel}</button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

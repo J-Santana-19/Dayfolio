@@ -80,7 +80,7 @@ export function SettingsDialog({
           <div className="settings-brand">
             <span>❧</span>
             <div>
-              <strong>Lúmina</strong>
+              <strong>{state.workspaceName}</strong>
               <small>Preferencias</small>
             </div>
           </div>

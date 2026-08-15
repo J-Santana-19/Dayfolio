@@ -238,6 +238,16 @@ export function normalizeWorkspaceState(value: unknown): WorkspaceState {
     workspaceName:
       text(input.workspaceName, defaults.workspaceName, 120).trim() ||
       defaults.workspaceName,
+    folderNames: (() => {
+      const names = objectValue(input.folderNames);
+      return Object.fromEntries(
+        [...FOLDERS].map((folder) => [
+          folder,
+          text(names[folder], defaults.folderNames[folder as keyof typeof defaults.folderNames], 40).trim() ||
+            defaults.folderNames[folder as keyof typeof defaults.folderNames],
+        ]),
+      ) as WorkspaceState["folderNames"];
+    })(),
     documents,
     activeDocumentId,
     theme: enumValue(input.theme, ["light", "dark"] as const, defaults.theme),
@@ -288,6 +298,6 @@ export function parseWorkspaceBackup(textValue: string): WorkspaceState {
   const payload = JSON.parse(textValue) as unknown;
   const root = objectValue(payload);
   if (root.format !== "lumina-workspace" || !root.state)
-    throw new Error("El archivo no es una copia válida de Lúmina.");
+    throw new Error("El archivo no es una copia válida de Mi Diario.");
   return normalizeWorkspaceState(root.state);
 }

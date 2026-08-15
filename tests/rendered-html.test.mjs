@@ -16,7 +16,7 @@ async function render() {
   );
 }
 
-test("server-renders the Lúmina shell and metadata", async () => {
+test("server-renders the Mi Diario shell and metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -26,7 +26,7 @@ test("server-renders the Lúmina shell and metadata", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="es">/i);
-  assert.match(html, /<title>Lúmina — Tu agenda personal<\/title>/i);
+  assert.match(html, /<title>Mi Diario — Notas y calendario<\/title>/i);
   assert.match(html, /Abriendo tu agenda…/);
   assert.match(html, /class="app-loading"/);
   assert.match(html, /property="og:image"[^>]+\/og\.png/i);

@@ -247,7 +247,7 @@ export function WorkspaceApp() {
       id: "theme",
       label:
         state.theme === "light" ? "Activar noche tinta" : "Activar papel crema",
-      description: "Cambia la atmósfera de Lúmina",
+      description: "Cambia la atmósfera de Mi Diario",
       icon: state.theme === "light" ? commandIcons.dark : commandIcons.light,
       action: () =>
         setState((current) => ({
@@ -325,6 +325,8 @@ export function WorkspaceApp() {
     <div className={appClasses} style={style}>
       <Sidebar
         documents={state.documents}
+        workspaceName={state.workspaceName}
+        folderNames={state.folderNames}
         activeId={activeDocument.id}
         activeView={view}
         collapsed={sidebarCollapsed}
@@ -345,6 +347,12 @@ export function WorkspaceApp() {
         onSettings={() => { setDialog("settings"); closeMobileSidebar(); }}
         onToggleFavorite={(id) =>
           patchDocument(id, (doc) => ({ ...doc, favorite: !doc.favorite, updatedAt: Date.now() }))
+        }
+        onRenameFolder={(folder, name) =>
+          setState((current) => ({
+            ...current,
+            folderNames: { ...current.folderNames, [folder]: name },
+          }))
         }
       />
       {isMobile && !sidebarCollapsed && (
@@ -367,7 +375,7 @@ export function WorkspaceApp() {
           <div className="breadcrumbs">
             <span>
               {view === "calendar"
-                ? "Mi agenda"
+                ? "Mi Diario"
                 : view === "trash"
                   ? "Organización"
                   : activeDocument.folder}

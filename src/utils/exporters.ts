@@ -340,7 +340,7 @@ export async function exportWorkspaceDocument(
     return;
   }
   if (options.format === "html") {
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(doc.title)}</title><style>body{font:16px/1.65 system-ui;color:#20242e;max-width:820px;margin:48px auto;padding:0 28px}h1{font-size:36px}img,svg{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:9px}pre{background:#111827;color:#f8fafc;padding:18px;border-radius:10px;white-space:pre-wrap}section+section{border-top:1px solid #ddd;margin-top:48px;padding-top:32px}</style></head><body><header><small>Exportado desde Lúmina</small><h1>${escapeHtml(doc.title)}</h1></header>${combinedHtml}</body></html>`;
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(doc.title)}</title><style>body{font:16px/1.65 system-ui;color:#20242e;max-width:820px;margin:48px auto;padding:0 28px}h1{font-size:36px}img,svg{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:9px}pre{background:#111827;color:#f8fafc;padding:18px;border-radius:10px;white-space:pre-wrap}section+section{border-top:1px solid #ddd;margin-top:48px;padding-top:32px}</style></head><body><header><small>Exportado desde Mi Diario</small><h1>${escapeHtml(doc.title)}</h1></header>${combinedHtml}</body></html>`;
     download(
       new Blob([html], { type: "text/html;charset=utf-8" }),
       `${base}.html`,

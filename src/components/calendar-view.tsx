@@ -31,6 +31,7 @@ export function CalendarView({ documents, onOpenDate }: { documents: WorkspaceDo
   const startOffset = (first.getDay() + 6) % 7;
   const gridStart = new Date(year, month, 1 - startOffset);
   const days = Array.from({ length: 42 }, (_, index) => { const day = new Date(gridStart); day.setDate(gridStart.getDate() + index); return day; });
+  const monthDays = Array.from({ length: new Date(year, month + 1, 0).getDate() }, (_, index) => new Date(year, month, index + 1));
   const selectedDoc = journalByDate.get(selected);
   const monthEntries = [...journalByDate.entries()].filter(([key]) => key.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).sort(([a], [b]) => a.localeCompare(b));
 
@@ -48,6 +49,14 @@ export function CalendarView({ documents, onOpenDate }: { documents: WorkspaceDo
           return <button key={key} className={`calendar-day ${muted ? "muted" : ""} ${selected === key ? "selected" : ""} ${entry ? "has-entry" : ""}`} onClick={() => setSelected(key)} onDoubleClick={() => onOpenDate(key)}>
             <span className={today ? "today-number" : ""}>{day.getDate()}</span>
             {entry ? <><strong>{entry.emoji} {entry.title.split(",")[0]}</strong><small>{stripHtml(entry.tabs[0]?.content ?? "").slice(0, 62)}</small></> : !muted && <em>—</em>}
+          </button>;
+        })}</div>
+        <div className="mobile-calendar-list">{monthDays.map((day) => {
+          const key = dateKey(day); const entry = journalByDate.get(key); const today = key === dateKey(new Date());
+          return <button key={key} className={`${selected === key ? "selected" : ""} ${entry ? "has-entry" : ""}`} onClick={() => setSelected(key)} onDoubleClick={() => onOpenDate(key)}>
+            <span className={today ? "today-number" : ""}>{day.getDate()}</span>
+            <div><strong>{new Intl.DateTimeFormat("es-PA", { weekday: "long" }).format(day)}</strong><small>{entry ? stripHtml(entry.tabs[0]?.content ?? "").slice(0, 76) : "Sin entrada"}</small></div>
+            {entry && <em>{entry.emoji}</em>}
           </button>;
         })}</div>
       </section>

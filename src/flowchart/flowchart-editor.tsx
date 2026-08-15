@@ -117,6 +117,8 @@ export function FlowchartEditor({
   const undoStack = useRef<Snapshot[]>([]);
   const redoStack = useRef<Snapshot[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
+  const selectedNode = selected.length === 1 ? nodes.find((node) => node.id === selected[0]) : undefined;
+  const runSimulation = () => { setStep(0); setRunning(true); };
   const path = useMemo(() => {
     const result: string[] = [];
     const visited = new Set<string>();
@@ -581,6 +583,9 @@ export function FlowchartEditor({
                   patchSelected({ label: e.target.value }, false)
                 }
               />
+              <span className="flow-color-swatches" aria-label="Colores rápidos de relleno">
+                {["#fffaf1", "#e1e7d7", "#f3d3c9", "#dce6ee", "#eadfce"].map((fill) => <button key={fill} type="button" title={fill} aria-label={`Relleno ${fill}`} className={selectedNode?.fill === fill ? "active" : ""} style={{ background: fill }} onClick={() => patchSelected({ fill })} />)}
+              </span>
             </label>
             <label>
               Relleno{" "}
@@ -972,10 +977,7 @@ export function FlowchartEditor({
         <div className="simulation-strip">
           <strong>Simulador</strong>
           <button
-            onClick={() => {
-              setStep(-1);
-              setRunning(true);
-            }}
+            onClick={runSimulation}
           >
             <Play /> Ejecutar
           </button>
@@ -1012,7 +1014,7 @@ export function FlowchartEditor({
       <aside className="simulation-panel">
         <div className="sim-status">
           <span className={running ? "pulse" : ""} />
-          {running ? "Ejecutando" : step >= 0 ? "Pausado" : "Listo"}
+          {running ? "Ejecutando" : step >= 0 ? "Pausado" : "Vista previa"}
         </div>
         <h3>Variables</h3>
         <label>
@@ -1025,17 +1027,14 @@ export function FlowchartEditor({
         </label>
         <div className="variable-row">
           <span>resultado</span>
-          <code>{step >= 3 ? (age >= 18 ? '"Mayor"' : '"Menor"') : "—"}</code>
+          <code>{age >= 18 ? '"Mayor"' : '"Menor"'}</code>
         </div>
         <h3>Salida</h3>
         <pre>
           &gt;{" "}
-          {step >= 3
-            ? age >= 18
-              ? "Usted es mayor de edad."
-              : "Usted es menor de edad."
-            : "Esperando…"}
+          {age >= 18 ? "Usted es mayor de edad." : "Usted es menor de edad."}
         </pre>
+        <button className="run-simulation" onClick={runSimulation}><Play /> Ejecutar diagrama</button>
         <h3>Selección</h3>
         <p>
           {selected.length
