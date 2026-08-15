@@ -5,6 +5,7 @@ import type {
   WorkspaceState,
 } from "@/src/types/workspace";
 import { sanitizeHtml } from "@/src/security/sanitize-html";
+import { safeCsvCell, safeExportFilename } from "@/src/core/workspace-rules";
 
 export type ExportFormat =
   | "pdf"
@@ -28,9 +29,6 @@ export interface ExportOptions {
   quality: number;
 }
 
-const cleanName = (name: string) =>
-  name.trim().replace(/[\\/:*?"<>|]+/g, "-") || "Documento";
-
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -38,6 +36,13 @@ function download(blob: Blob, filename: string) {
   anchor.download = filename;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function assertRasterSize(width: number, height: number, pixelRatio: number) {
+  const pixels = width * height * pixelRatio * pixelRatio;
+  if (width * pixelRatio > 32_000 || height * pixelRatio > 32_000 || pixels > 80_000_000) {
+    throw new Error("El documento es demasiado grande para rasterizarlo. Usa DOCX, HTML o divide el contenido.");
+  }
 }
 
 function plainText(html: string) {
@@ -65,7 +70,9 @@ function htmlToMarkdown(html: string) {
     el.textContent = `\`\`\`\n${el.textContent ?? ""}\n\`\`\``;
   });
   root.querySelectorAll("li").forEach((el) => {
-    el.textContent = `- ${el.textContent ?? ""}`;
+    const parent = el.parentElement;
+    const prefix = parent?.tagName === "OL" ? `${Array.from(parent.children).indexOf(el) + 1}.` : "-";
+    el.textContent = `${prefix} ${el.textContent ?? ""}`;
   });
   root.querySelectorAll("a").forEach((el) => {
     el.textContent = `[${el.textContent ?? "enlace"}](${(el as HTMLAnchorElement).href})`;
@@ -298,7 +305,7 @@ export async function exportWorkspaceDocument(
   target?: HTMLElement | null,
 ) {
   const tabs = selectedTabs(doc, options.scope);
-  const base = cleanName(options.filename);
+  const base = safeExportFilename(options.filename);
   const combinedText = tabs
     .map((tab) => `${tab.title}\n\n${tabText(tab)}`)
     .join("\n\n──────────\n\n");
@@ -354,6 +361,7 @@ export async function exportWorkspaceDocument(
     ]);
     const surface = await createExportSurface(doc, tabs, state);
     try {
+      assertRasterSize(surface.scrollWidth, surface.scrollHeight, 2);
       const canvas = await toCanvas(surface, {
         pixelRatio: 2,
         backgroundColor: "#fbf8f2",
@@ -425,15 +433,38 @@ export async function exportWorkspaceDocument(
     return;
   }
   if (options.format === "docx") {
-    const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
-    const children = tabs.flatMap((tab) => [
-      new Paragraph({ text: tab.title, heading: HeadingLevel.HEADING_1 }),
-      ...tabText(tab)
-        .split(/\n+/)
-        .filter(Boolean)
-        .map((line) => new Paragraph(line)),
-    ]);
-    const file = new Document({ sections: [{ children }] });
+    const { AlignmentType, Document, HeadingLevel, LevelFormat, Packer, Paragraph } = await import("docx");
+    const children = tabs.flatMap((tab) => {
+      const heading = new Paragraph({ text: tab.title, heading: HeadingLevel.HEADING_1 });
+      if (tab.kind !== "document") {
+        return [heading, ...tabText(tab).split(/\n+/).filter(Boolean).map((line) => new Paragraph(line))];
+      }
+      const root = document.createElement("div");
+      root.innerHTML = sanitizeHtml(tab.content);
+      const blocks = Array.from(root.children).flatMap((element) => {
+        const text = element.textContent?.trim() ?? "";
+        if (!text) return [];
+        if (/^H[1-3]$/.test(element.tagName)) {
+          const levels = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3];
+          return [new Paragraph({ text, heading: levels[Number(element.tagName[1]) - 1] })];
+        }
+        if (element.tagName === "UL") {
+          return Array.from(element.children).map((item) => new Paragraph({ text: item.textContent?.trim() ?? "", bullet: { level: 0 } }));
+        }
+        if (element.tagName === "OL") {
+          return Array.from(element.children).map((item) => new Paragraph({ text: item.textContent?.trim() ?? "", numbering: { reference: "ordered-list", level: 0 } }));
+        }
+        if (element.tagName === "TABLE") {
+          return Array.from(element.querySelectorAll("tr")).map((row) => new Paragraph(Array.from(row.querySelectorAll("th,td")).map((cell) => cell.textContent?.trim() ?? "").join("    ")));
+        }
+        return [new Paragraph(text)];
+      });
+      return [heading, ...blocks];
+    });
+    const file = new Document({
+      numbering: { config: [{ reference: "ordered-list", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.START }] }] },
+      sections: [{ children }],
+    });
     download(await Packer.toBlob(file), `${base}.docx`);
     return;
   }
@@ -442,7 +473,7 @@ export async function exportWorkspaceDocument(
     if (options.format === "csv") {
       const csv = rows
         .map((row) =>
-          row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(","),
+          row.map(safeCsvCell).join(","),
         )
         .join("\r\n");
       download(
@@ -457,13 +488,19 @@ export async function exportWorkspaceDocument(
   if (options.format === "png" || options.format === "jpg") {
     if (!target) throw new Error("No hay una vista disponible para exportar.");
     const { toJpeg, toPng } = await import("html-to-image");
+    assertRasterSize(target.scrollWidth, target.scrollHeight, 2);
+    const captureOptions = {
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+      width: target.scrollWidth,
+      height: target.scrollHeight,
+    };
     const dataUrl =
       options.format === "png"
-        ? await toPng(target, { pixelRatio: 2, backgroundColor: "#ffffff" })
+        ? await toPng(target, captureOptions)
         : await toJpeg(target, {
-            pixelRatio: 2,
+            ...captureOptions,
             quality: options.quality,
-            backgroundColor: "#ffffff",
           });
     const response = await fetch(dataUrl);
     download(await response.blob(), `${base}.${options.format}`);
@@ -483,7 +520,7 @@ export async function exportWorkspaceDocument(
 export function downloadBackup(state: WorkspaceState) {
   const payload = {
     format: "lumina-workspace",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     state,
   };

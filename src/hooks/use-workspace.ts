@@ -7,16 +7,18 @@ import {
   createTab,
   uid,
 } from "@/src/database/initial-data";
-import { loadWorkspace, saveWorkspace } from "@/src/database/storage";
+import { loadWorkspace, saveWorkspace, WorkspaceConflictError } from "@/src/database/storage";
 import { normalizeWorkspaceState } from "@/src/database/validation";
+import { localDateKey } from "@/src/core/workspace-rules";
 import type {
   DocumentTab,
   TabKind,
   WorkspaceDocument,
+  WorkspaceFolder,
   WorkspaceState,
 } from "@/src/types/workspace";
 
-export type SaveStatus = "saved" | "saving" | "error";
+export type SaveStatus = "saved" | "saving" | "error" | "conflict";
 
 export function useWorkspace() {
   const [state, setState] = useState<WorkspaceState>(() =>
@@ -24,10 +26,16 @@ export function useWorkspace() {
   );
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [saveMessage, setSaveMessage] = useState("");
   const skipFirstSave = useRef(true);
+  const skipNextPersist = useRef(false);
+  const dirty = useRef(false);
   const latestState = useRef(state);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   const saveRevision = useRef(0);
+  const storedRevision = useRef(0);
+  const writerId = useRef(uid("writer"));
+  const channelRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
     latestState.current = state;
   }, [state]);
@@ -35,28 +43,48 @@ export function useWorkspace() {
   useEffect(() => {
     loadWorkspace()
       .then((stored) => {
-        if (stored) setState(normalizeWorkspaceState(stored));
+        if (stored) {
+          storedRevision.current = stored.revision;
+          setState(normalizeWorkspaceState(stored.state));
+        }
         setReady(true);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         setSaveStatus("error");
+        setSaveMessage(error instanceof Error ? error.message : "No fue posible abrir el almacenamiento local.");
         setReady(true);
       });
   }, []);
 
-  const persist = useCallback((snapshot: WorkspaceState) => {
+  const persist = useCallback((snapshot: WorkspaceState, force = false) => {
     const revision = ++saveRevision.current;
     setSaveStatus("saving");
+    setSaveMessage("");
     const operation = saveChain.current
       .catch(() => undefined)
-      .then(() => saveWorkspace(snapshot));
-    saveChain.current = operation;
+      .then(async () => {
+        const record = await saveWorkspace(snapshot, writerId.current, storedRevision.current, force);
+        storedRevision.current = record.revision;
+        channelRef.current?.postMessage({ writerId: writerId.current, revision: record.revision });
+      });
+    saveChain.current = operation.then(() => undefined);
     operation
       .then(() => {
-        if (revision === saveRevision.current) setSaveStatus("saved");
+        if (revision === saveRevision.current) {
+          dirty.current = false;
+          setSaveStatus("saved");
+        }
       })
-      .catch(() => {
-        if (revision === saveRevision.current) setSaveStatus("error");
+      .catch((error: unknown) => {
+        if (revision !== saveRevision.current) return;
+        if (error instanceof WorkspaceConflictError) {
+          setSaveStatus("conflict");
+          setSaveMessage("Otra pestaña guardó una versión más reciente. Tus cambios siguen abiertos aquí.");
+          return;
+        }
+        setSaveStatus("error");
+        const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
+        setSaveMessage(isQuota ? "El dispositivo se quedó sin espacio. Exporta una copia y elimina imágenes pesadas." : error instanceof Error ? error.message : "No fue posible guardar los cambios.");
       });
     return operation;
   }, []);
@@ -67,6 +95,12 @@ export function useWorkspace() {
       skipFirstSave.current = false;
       return;
     }
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      dirty.current = false;
+      return;
+    }
+    dirty.current = true;
     const timer = window.setTimeout(() => {
       void persist(state);
     }, 650);
@@ -76,12 +110,50 @@ export function useWorkspace() {
   useEffect(() => {
     if (!ready) return;
     const flush = () => {
-      if (document.visibilityState === "hidden")
+      if (document.visibilityState === "hidden" && dirty.current)
         void persist(latestState.current);
     };
+    const pageHide = () => {
+      if (dirty.current) void persist(latestState.current);
+    };
     document.addEventListener("visibilitychange", flush);
-    return () => document.removeEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", pageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", pageHide);
+    };
   }, [ready, persist]);
+
+  useEffect(() => {
+    if (!ready || typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel("lumina-workspace-sync");
+    channelRef.current = channel;
+    channel.onmessage = async (event: MessageEvent<{ writerId?: string; revision?: number }>) => {
+      if (event.data?.writerId === writerId.current) return;
+      if ((event.data?.revision ?? 0) <= storedRevision.current) return;
+      if (dirty.current) {
+        setSaveStatus("conflict");
+        setSaveMessage("Hay cambios nuevos en otra pestaña. Resuelve el conflicto antes de continuar guardando.");
+        return;
+      }
+      try {
+        const stored = await loadWorkspace();
+        if (!stored || stored.revision <= storedRevision.current) return;
+        storedRevision.current = stored.revision;
+        skipNextPersist.current = true;
+        setState(normalizeWorkspaceState(stored.state));
+        setSaveStatus("saved");
+        setSaveMessage("");
+      } catch {
+        setSaveStatus("error");
+        setSaveMessage("No fue posible sincronizar los cambios de la otra pestaña.");
+      }
+    };
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [ready]);
 
   const activeDocument = useMemo(
     () =>
@@ -124,7 +196,7 @@ export function useWorkspace() {
     [activeDocument, activeTab, patchDocument],
   );
 
-  const addDocument = useCallback((folder?: string) => {
+  const addDocument = useCallback((folder?: WorkspaceFolder) => {
     const doc = createDocument("Nota sin título", folder);
     setState((current) => ({
       ...current,
@@ -241,13 +313,20 @@ export function useWorkspace() {
   );
 
   const retrySave = useCallback(() => {
+    if (saveStatus === "conflict") {
+      const keepLocal = window.confirm("Otra pestaña guardó cambios más recientes. ¿Quieres conservar esta pestaña y reemplazar la otra versión?");
+      if (!keepLocal) return;
+      void persist(latestState.current, true);
+      return;
+    }
     void persist(latestState.current);
-  }, [persist]);
+  }, [persist, saveStatus]);
   return {
     state,
     setState,
     ready,
     saveStatus,
+    saveMessage,
     retrySave,
     activeDocument,
     activeTab,
@@ -261,8 +340,4 @@ export function useWorkspace() {
     saveVersion,
     restoreVersion,
   };
-}
-
-function localDateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

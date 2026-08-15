@@ -43,7 +43,9 @@ export function SettingsDialog({
   const [section, setSection] = useState<SettingsSection>("appearance");
   const [dataMessage, setDataMessage] = useState("");
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
+    return () => previous?.focus();
   }, []);
   return (
     <div

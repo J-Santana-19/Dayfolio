@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookMarked,
   CalendarDays,
@@ -55,6 +55,7 @@ export function WorkspaceApp() {
     setState,
     ready,
     saveStatus,
+    saveMessage,
     retrySave,
     activeDocument,
     activeTab,
@@ -104,16 +105,16 @@ export function WorkspaceApp() {
     return () => query.removeEventListener("change", handler);
   }, []);
 
-  const closeMobileSidebar = () => {
+  const closeMobileSidebar = useCallback(() => {
     if (window.matchMedia("(max-width: 760px)").matches) setSidebarCollapsed(true);
-  };
+  }, []);
 
-  const openDocument = (id: string) => {
+  const openDocument = useCallback((id: string) => {
     setState((current) => ({ ...current, activeDocumentId: id }));
     setView("document");
     setShowVersions(false);
     closeMobileSidebar();
-  };
+  }, [closeMobileSidebar, setState]);
   const openToday = () => {
     createDailyNote();
     setView("document");
@@ -171,7 +172,7 @@ export function WorkspaceApp() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const searchActions: CommandAction[] = state.documents
+  const searchActions: CommandAction[] = useMemo(() => state.documents
     .filter((doc) => !doc.trashed)
     .map((doc) => ({
       id: doc.id,
@@ -183,7 +184,7 @@ export function WorkspaceApp() {
         .slice(0, 20_000),
       icon: <span>{doc.emoji}</span>,
       action: () => openDocument(doc.id),
-    }));
+    })), [state.documents, openDocument]);
   const commands: CommandAction[] = [
     {
       id: "new",
@@ -219,7 +220,7 @@ export function WorkspaceApp() {
     {
       id: "flow",
       label: "Crear diagrama",
-      description: "Añade una pestaña de flujo ejecutable",
+      description: "Añade una pestaña de diagrama visual",
       icon: commandIcons.flow,
       action: () => {
         addTab("flowchart");
@@ -394,26 +395,28 @@ export function WorkspaceApp() {
               className="save-state"
               aria-live="polite"
               title={
-                saveStatus === "error"
-                  ? "Reintentar guardado"
+                saveStatus === "error" || saveStatus === "conflict"
+                  ? saveMessage || "Reintentar guardado"
                   : "Guardado automático"
               }
               onClick={() => {
-                if (saveStatus === "error") retrySave();
+                if (saveStatus === "error" || saveStatus === "conflict") retrySave();
               }}
             >
               <span
                 className={
                   saveStatus === "saving"
                     ? "saving-dot"
-                    : saveStatus === "error"
+                    : saveStatus === "error" || saveStatus === "conflict"
                       ? "error-dot"
                       : "saved-dot"
                 }
               />
               {saveStatus === "saving"
                 ? "Guardando…"
-                : saveStatus === "error"
+                : saveStatus === "conflict"
+                  ? "Resolver conflicto"
+                  : saveStatus === "error"
                   ? "Reintentar guardado"
                   : "Todo guardado"}
             </button>

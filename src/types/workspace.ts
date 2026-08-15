@@ -52,7 +52,7 @@ export interface WorkspaceDocument {
   id: string;
   title: string;
   emoji: string;
-  folder: string;
+  folder: WorkspaceFolder;
   tags: string[];
   favorite: boolean;
   trashed: boolean;

@@ -15,6 +15,7 @@ import type {
   FlowNodeType,
   VersionSnapshot,
   WorkspaceDocument,
+  WorkspaceFolder,
   WorkspaceState,
 } from "@/src/types/workspace";
 
@@ -196,7 +197,7 @@ function normalizeDocument(
     title:
       text(input.title, "Nota sin título", 240).trim() || "Nota sin título",
     emoji: text(input.emoji, "✦", 8),
-    folder: FOLDERS.has(folder) ? folder : "Notas",
+    folder: FOLDERS.has(folder) ? folder as WorkspaceFolder : "Notas",
     tags: [
       ...new Set(
         (Array.isArray(input.tags) ? input.tags : [])
@@ -297,9 +298,19 @@ export function normalizeWorkspaceState(value: unknown): WorkspaceState {
 export function parseWorkspaceBackup(textValue: string): WorkspaceState {
   if (new Blob([textValue]).size > MAX_BACKUP_BYTES)
     throw new Error("La copia supera el límite de 50 MB.");
-  const payload = JSON.parse(textValue) as unknown;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(textValue) as unknown;
+  } catch {
+    throw new Error("El archivo no contiene una copia JSON válida.");
+  }
   const root = objectValue(payload);
   if (root.format !== "lumina-workspace" || !root.state)
     throw new Error("El archivo no es una copia válida de Mi Diario.");
+  const version = root.version ?? 1;
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1)
+    throw new Error("La copia tiene una versión inválida.");
+  if (version > 2)
+    throw new Error("Esta copia fue creada por una versión más reciente de Mi Diario.");
   return normalizeWorkspaceState(root.state);
 }

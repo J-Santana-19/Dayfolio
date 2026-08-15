@@ -1,11 +1,12 @@
-import type { DocumentTab, WorkspaceDocument, WorkspaceState } from "@/src/types/workspace";
+import type { DocumentTab, WorkspaceDocument, WorkspaceFolder, WorkspaceState } from "@/src/types/workspace";
+import { localDateKey, localizedMonthTag } from "@/src/core/workspace-rules";
 
 export const uid = (prefix: string) => {
   const randomId = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
   return `${prefix}-${randomId}`;
 };
 
-export function createDocument(title = "Nota sin título", folder = "Notas"): WorkspaceDocument {
+export function createDocument(title = "Nota sin título", folder: WorkspaceFolder = "Notas"): WorkspaceDocument {
   const now = Date.now();
   const tabId = uid("tab");
   return {
@@ -38,7 +39,7 @@ export function createInitialState(): WorkspaceState {
   const journal = createDocument(today.charAt(0).toUpperCase() + today.slice(1), "Diario");
   journal.emoji = "☀";
   journal.journalDate = localDateKey(new Date());
-  journal.tags = ["diario", "agosto"];
+  journal.tags = ["diario", localizedMonthTag(new Date())];
   journal.tabs[0].content = `<p class="eyebrow">DIARIO · HOY</p><h1>${journal.title}</h1><p class="lead">Un lugar tranquilo para registrar el día.</p><h2>¿Qué hice hoy?</h2><p>Comienza aquí…</p><h2>¿Qué aprendí?</h2><p>Escribe un aprendizaje o una idea que quieras conservar.</p><blockquote>La claridad llega cuando las ideas encuentran su lugar.</blockquote>`;
 
   const project = createDocument("Sistema de reservas", "Proyectos");
@@ -92,5 +93,3 @@ export function createInitialState(): WorkspaceState {
     reduceMotion: false,
   };
 }
-
-function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }

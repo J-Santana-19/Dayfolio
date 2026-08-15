@@ -6,7 +6,7 @@ import { ArrowUpRight, ChevronDown, Circle, Diamond, Download, Eraser, Minus, Pe
 interface DrawingCanvasProps { data?: string; onChange: (data: string) => void; }
 type Tool = "pen" | "eraser" | "line" | "rect" | "circle" | "arrow" | "triangle" | "diamond";
 type Brush = "pencil" | "pen" | "marker" | "highlighter" | "spray";
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 8;
 
 export function DrawingCanvas({ data, onChange }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -14,8 +14,8 @@ export function DrawingCanvas({ data, onChange }: DrawingCanvasProps) {
   const changed = useRef(false);
   const startPoint = useRef({ x: 0, y: 0 });
   const preview = useRef<ImageData | null>(null);
-  const undoStack = useRef<ImageData[]>([]);
-  const redoStack = useRef<ImageData[]>([]);
+  const undoStack = useRef<string[]>([]);
+  const redoStack = useRef<string[]>([]);
   const lastEmitted = useRef<string | undefined>(undefined);
   const [tool, setTool] = useState<Tool>("pen");
   const [brush, setBrush] = useState<Brush>("pencil");
@@ -53,15 +53,29 @@ export function DrawingCanvas({ data, onChange }: DrawingCanvasProps) {
     if (canvas) { const next = canvas.toDataURL("image/png"); lastEmitted.current = next; onChange(next); }
     refreshHistoryState();
   };
-  const rememberUndo = (snapshot: ImageData) => { undoStack.current.push(snapshot); undoStack.current = undoStack.current.slice(-MAX_HISTORY); };
-  const rememberRedo = (snapshot: ImageData) => { redoStack.current.push(snapshot); redoStack.current = redoStack.current.slice(-MAX_HISTORY); };
+  const snapshot = () => canvasRef.current?.toDataURL("image/png") ?? "";
+  const rememberUndo = (value: string) => { if (value) undoStack.current.push(value); undoStack.current = undoStack.current.slice(-MAX_HISTORY); };
+  const rememberRedo = (value: string) => { if (value) redoStack.current.push(value); redoStack.current = redoStack.current.slice(-MAX_HISTORY); };
+  const restoreSnapshot = (value: string) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    const image = new Image();
+    image.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      commit();
+    };
+    image.onerror = () => refreshHistoryState();
+    image.src = value;
+  };
 
   const start = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
     const current = context.getImageData(0, 0, canvas.width, canvas.height);
-    rememberUndo(current);
+    rememberUndo(snapshot());
     redoStack.current = [];
     preview.current = current;
     changed.current = false;
@@ -111,17 +125,17 @@ export function DrawingCanvas({ data, onChange }: DrawingCanvasProps) {
   const clear = () => {
     const canvas = canvasRef.current; const context = canvas?.getContext("2d");
     if (!canvas || !context || !window.confirm("¿Limpiar todo el lienzo? Podrás deshacer esta acción.")) return;
-    rememberUndo(context.getImageData(0, 0, canvas.width, canvas.height)); redoStack.current = []; context.clearRect(0, 0, canvas.width, canvas.height); commit();
+    rememberUndo(snapshot()); redoStack.current = []; context.clearRect(0, 0, canvas.width, canvas.height); commit();
   };
   const undo = () => {
     const canvas = canvasRef.current; const context = canvas?.getContext("2d"); const previous = undoStack.current.pop();
     if (!canvas || !context || !previous) return;
-    rememberRedo(context.getImageData(0, 0, canvas.width, canvas.height)); context.putImageData(previous, 0, 0); commit();
+    rememberRedo(snapshot()); restoreSnapshot(previous);
   };
   const redo = () => {
     const canvas = canvasRef.current; const context = canvas?.getContext("2d"); const next = redoStack.current.pop();
     if (!canvas || !context || !next) return;
-    rememberUndo(context.getImageData(0, 0, canvas.width, canvas.height)); context.putImageData(next, 0, 0); commit();
+    rememberUndo(snapshot()); restoreSnapshot(next);
   };
   const download = () => { const anchor = document.createElement("a"); anchor.download = "dibujo-mi-diario.png"; anchor.href = canvasRef.current?.toDataURL("image/png") ?? ""; anchor.click(); };
 
@@ -136,7 +150,7 @@ export function DrawingCanvas({ data, onChange }: DrawingCanvasProps) {
       <label className="stroke-width">Grosor <input aria-label="Grosor del trazo" type="range" min="1" max="18" value={width} onChange={(event) => setWidth(Number(event.target.value))} /></label>
       <button onClick={undo} disabled={!historyState.canUndo} title="Deshacer" aria-label="Deshacer"><Undo2 /></button><button onClick={redo} disabled={!historyState.canRedo} title="Rehacer" aria-label="Rehacer"><Redo2 /></button><button onClick={clear} title="Limpiar lienzo" aria-label="Limpiar lienzo"><Trash2 /></button><button onClick={download}><Download /> PNG</button>
     </div>
-    <div className="canvas-stage"><canvas ref={canvasRef} width={1200} height={760} role="img" aria-label="Lienzo de dibujo editable" tabIndex={0} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} onLostPointerCapture={stop} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); undo(); } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); } }} /></div>
+    <div className="canvas-stage"><canvas ref={canvasRef} width={1200} height={760} role="img" aria-label="Lienzo de dibujo editable. Usa Control Z para deshacer y Control Y para rehacer." tabIndex={0} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} onLostPointerCapture={stop} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); undo(); } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); } }} /></div>
     <div className="canvas-hint">Cada trazo se guarda automáticamente. El borrador elimina solo la zona que recorres.</div>
   </div>;
 }

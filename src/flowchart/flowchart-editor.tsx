@@ -118,7 +118,15 @@ export function FlowchartEditor({
   const redoStack = useRef<Snapshot[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const selectedNode = selected.length === 1 ? nodes.find((node) => node.id === selected[0]) : undefined;
-  const runSimulation = () => { setStep(0); setRunning(true); };
+  const supportsAgeSimulation = useMemo(
+    () => nodes.some((node) => node.type === "decision" && /edad/i.test(node.label)),
+    [nodes],
+  );
+  const runSimulation = () => {
+    if (!supportsAgeSimulation) return;
+    setStep(0);
+    setRunning(true);
+  };
   const path = useMemo(() => {
     const result: string[] = [];
     const visited = new Set<string>();
@@ -158,12 +166,14 @@ export function FlowchartEditor({
   }, [running, step, speed, path.length]);
 
   const rememberUndo = useCallback((snapshot: Snapshot) => {
+    const limit = snapshot.nodes.length > 500 ? 8 : snapshot.nodes.length > 100 ? 20 : MAX_HISTORY;
     undoStack.current.push(snapshot);
-    undoStack.current = undoStack.current.slice(-MAX_HISTORY);
+    undoStack.current = undoStack.current.slice(-limit);
   }, []);
   const rememberRedo = useCallback((snapshot: Snapshot) => {
+    const limit = snapshot.nodes.length > 500 ? 8 : snapshot.nodes.length > 100 ? 20 : MAX_HISTORY;
     redoStack.current.push(snapshot);
-    redoStack.current = redoStack.current.slice(-MAX_HISTORY);
+    redoStack.current = redoStack.current.slice(-limit);
   }, []);
   const commit = useCallback(
     (nextNodes: FlowNode[], nextConnections = connections, record = true) => {
@@ -428,7 +438,8 @@ export function FlowchartEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (target.matches("input,textarea,[contenteditable=true]")) return;
+      if (!target.closest(".flow-layout")) return;
+      if (target.matches("input,textarea,select,button,a,[contenteditable=true]")) return;
       const mod = event.ctrlKey || event.metaKey;
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
@@ -978,14 +989,17 @@ export function FlowchartEditor({
           <strong>Simulador</strong>
           <button
             onClick={runSimulation}
+            disabled={!supportsAgeSimulation}
+            title={supportsAgeSimulation ? "Ejecutar la prueba por edad" : "La simulación está disponible para la plantilla de edad"}
           >
             <Play /> Ejecutar
           </button>
-          <button onClick={() => setRunning(false)}>
+          <button onClick={() => setRunning(false)} disabled={!supportsAgeSimulation}>
             <Pause /> Pausar
           </button>
           <button
             onClick={() => setStep((v) => Math.min(path.length - 1, v + 1))}
+            disabled={!supportsAgeSimulation}
           >
             <SkipForward /> Paso
           </button>
@@ -994,6 +1008,7 @@ export function FlowchartEditor({
               setRunning(false);
               setStep(-1);
             }}
+            disabled={!supportsAgeSimulation}
           >
             <RotateCcw /> Reiniciar
           </button>
@@ -1016,25 +1031,24 @@ export function FlowchartEditor({
           <span className={running ? "pulse" : ""} />
           {running ? "Ejecutando" : step >= 0 ? "Pausado" : "Vista previa"}
         </div>
-        <h3>Variables</h3>
-        <label>
-          edad
-          <input
-            type="number"
-            value={age}
-            onChange={(e) => setAge(Number(e.target.value))}
-          />
-        </label>
-        <div className="variable-row">
-          <span>resultado</span>
-          <code>{age >= 18 ? '"Mayor"' : '"Menor"'}</code>
-        </div>
-        <h3>Salida</h3>
-        <pre>
-          &gt;{" "}
-          {age >= 18 ? "Usted es mayor de edad." : "Usted es menor de edad."}
-        </pre>
-        <button className="run-simulation" onClick={runSimulation}><Play /> Ejecutar diagrama</button>
+        {supportsAgeSimulation ? <>
+          <h3>Prueba de decisión</h3>
+          <label>
+            edad
+            <input
+              type="number"
+              value={age}
+              onChange={(e) => setAge(Number(e.target.value))}
+            />
+          </label>
+          <div className="variable-row">
+            <span>resultado</span>
+            <code>{age >= 18 ? '"Mayor"' : '"Menor"'}</code>
+          </div>
+          <h3>Salida</h3>
+          <pre>&gt; {age >= 18 ? "Usted es mayor de edad." : "Usted es menor de edad."}</pre>
+          <button className="run-simulation" onClick={runSimulation}><Play /> Ejecutar prueba</button>
+        </> : <div className="simulation-empty"><h3>Sin simulación configurada</h3><p>Este diagrama es visual. La ejecución automática está disponible en la plantilla de decisión por edad.</p></div>}
         <h3>Selección</h3>
         <p>
           {selected.length

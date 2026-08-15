@@ -54,7 +54,17 @@ export function ExportDialog({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { closeRef.current?.focus(); }, []);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    closeRef.current?.focus();
+    return () => {
+      if (dialog?.open) dialog.close();
+      previous?.focus();
+    };
+  }, []);
   const set = <K extends keyof ExportOptions>(
     key: K,
     value: ExportOptions[K],
@@ -63,10 +73,11 @@ export function ExportDialog({
   const qualityOptions = options.format === "jpg";
   return (
     <dialog
-      open
+      ref={dialogRef}
       className="modal-backdrop"
       aria-labelledby="export-title"
       aria-modal="true"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

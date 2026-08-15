@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import {
+  localDateKey,
+  localizedMonthTag,
+  safeCsvCell,
+  safeExportFilename,
+  shiftedMonthStart,
+} from "../src/core/workspace-rules.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -22,7 +29,10 @@ test("server-renders the Mi Diario shell and metadata", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.equal(response.headers.get("cross-origin-resource-policy"), "same-origin");
+  assert.match(response.headers.get("strict-transport-security") ?? "", /^max-age=63072000/);
   assert.match(response.headers.get("content-security-policy") ?? "", /object-src 'none'/);
+  assert.match(response.headers.get("content-security-policy") ?? "", /script-src-attr 'none'/);
 
   const html = await response.text();
   assert.match(html, /<html lang="es">/i);
@@ -102,7 +112,9 @@ test("ships validation, HTML sanitization and bounded histories", async () => {
   assert.match(validation, /MAX_BACKUP_BYTES/);
   assert.match(sanitizer, /DROP_WITH_CONTENT/);
   assert.match(sanitizer, /sanitizeLinkUrl/);
-  assert.match(drawing, /MAX_HISTORY = 10/);
+  assert.match(drawing, /MAX_HISTORY = 8/);
+  assert.match(drawing, /undoStack = useRef<string\[\]>/);
+  assert.doesNotMatch(drawing, /undoStack = useRef<ImageData\[\]>/);
   assert.match(flowchart, /MAX_HISTORY = 50/);
   assert.doesNotMatch(manifest, /"xlsx"\s*:/);
 });
@@ -130,4 +142,26 @@ test("keeps the video-feedback interactions integrated and responsive", async ()
   assert.match(styles, /list-style-type:disc!important/);
   assert.match(styles, /list-style-type:decimal!important/);
   assert.match(styles, /Classic bound notebook/);
+});
+
+test("moves calendar selection with the visible month, including year boundaries", () => {
+  assert.equal(localDateKey(shiftedMonthStart(2026, 7, 1)), "2026-09-01");
+  assert.equal(localDateKey(shiftedMonthStart(2026, 0, -1)), "2025-12-01");
+  assert.equal(localDateKey(new Date(2028, 1, 29, 12)), "2028-02-29");
+});
+
+test("creates the journal month tag from the actual local date", () => {
+  assert.equal(localizedMonthTag(new Date(2026, 0, 15, 12), "es-PA"), "enero");
+  assert.equal(localizedMonthTag(new Date(2026, 11, 15, 12), "es-PA"), "diciembre");
+});
+
+test("normalizes unsafe and reserved export filenames", () => {
+  assert.equal(safeExportFilename("  Informe: agosto.  "), "Informe- agosto");
+  assert.equal(safeExportFilename("CON"), "Documento-CON");
+  assert.equal(safeExportFilename("   "), "Documento");
+});
+
+test("neutralizes spreadsheet formulas and escapes CSV quotes", () => {
+  assert.equal(safeCsvCell("=HYPERLINK(\"https://invalid\")"), "\"'=HYPERLINK(\"\"https://invalid\"\")\"");
+  assert.equal(safeCsvCell("texto normal"), "\"texto normal\"");
 });

@@ -8,7 +8,7 @@ Agenda personal local-first con estética de diario clásico para escribir, orga
 - Calendario mensual que reúne las entradas del diario por fecha.
 - Preferencias de apariencia, tipografía, lectura, accesibilidad y copias de seguridad.
 - Búsqueda y paleta de comandos con navegación por teclado.
-- Lienzo con lápiz, borrador, líneas y figuras; diagramas de flujo ejecutables.
+- Lienzo con lápiz, borrador, líneas y figuras; diagramas de flujo visuales con una plantilla de simulación por edad.
 - Papelera con restauración y borrado definitivo.
 - Exportación a PDF, DOCX, Markdown, HTML, TXT, JSON, PNG, JPG, SVG, CSV y XLSX.
 

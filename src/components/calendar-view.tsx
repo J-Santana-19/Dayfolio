@@ -4,15 +4,9 @@ import { CalendarDays, ChevronLeft, ChevronRight, Feather, Plus } from "lucide-r
 import { useMemo, useState } from "react";
 import type { WorkspaceDocument } from "@/src/types/workspace";
 import { sanitizeHtml } from "@/src/security/sanitize-html";
+import { localDateKey, shiftedMonthStart } from "@/src/core/workspace-rules";
 
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-const dateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 const stripHtml = (html: string) => {
   if (typeof document === "undefined") return html.replace(/<[^>]+>/g, " ");
@@ -23,8 +17,8 @@ const stripHtml = (html: string) => {
 
 export function CalendarView({ documents, onOpenDate }: { documents: WorkspaceDocument[]; onOpenDate: (key: string) => void }) {
   const [cursor, setCursor] = useState(() => new Date());
-  const [selected, setSelected] = useState(() => dateKey(new Date()));
-  const journalByDate = useMemo(() => new Map(documents.filter((doc) => !doc.trashed && doc.folder === "Diario").sort((a, b) => a.updatedAt - b.updatedAt).map((doc) => [doc.journalDate ?? dateKey(new Date(doc.createdAt)), doc])), [documents]);
+  const [selected, setSelected] = useState(() => localDateKey(new Date()));
+  const journalByDate = useMemo(() => new Map(documents.filter((doc) => !doc.trashed && doc.folder === "Diario").sort((a, b) => a.updatedAt - b.updatedAt).map((doc) => [doc.journalDate ?? localDateKey(new Date(doc.createdAt)), doc])), [documents]);
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const first = new Date(year, month, 1);
@@ -34,25 +28,30 @@ export function CalendarView({ documents, onOpenDate }: { documents: WorkspaceDo
   const monthDays = Array.from({ length: new Date(year, month + 1, 0).getDate() }, (_, index) => new Date(year, month, index + 1));
   const selectedDoc = journalByDate.get(selected);
   const monthEntries = [...journalByDate.entries()].filter(([key]) => key.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).sort(([a], [b]) => a.localeCompare(b));
+  const moveMonth = (amount: number) => {
+    const next = shiftedMonthStart(year, month, amount);
+    setCursor(next);
+    setSelected(localDateKey(next));
+  };
 
   return <div className="calendar-page">
     <header className="calendar-header">
       <div><span className="calendar-kicker">TU HISTORIA, DÍA A DÍA</span><h1>Calendario del diario</h1><p>Explora todo lo que has escrito y vuelve a cualquier día.</p></div>
-      <div className="calendar-controls"><button onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="Mes anterior"><ChevronLeft /></button><button className="today-control" onClick={() => { const today = new Date(); setCursor(today); setSelected(dateKey(today)); }}>Hoy</button><button onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="Mes siguiente"><ChevronRight /></button></div>
+      <div className="calendar-controls"><button onClick={() => moveMonth(-1)} aria-label="Mes anterior"><ChevronLeft /></button><button className="today-control" onClick={() => { const today = new Date(); setCursor(today); setSelected(localDateKey(today)); }}>Hoy</button><button onClick={() => moveMonth(1)} aria-label="Mes siguiente"><ChevronRight /></button></div>
     </header>
     <div className="calendar-book">
       <section className="month-panel">
         <div className="month-title"><CalendarDays /><h2>{new Intl.DateTimeFormat("es-PA", { month: "long", year: "numeric" }).format(cursor)}</h2><span>{monthEntries.length} {monthEntries.length === 1 ? "entrada" : "entradas"}</span></div>
         <div className="weekday-row">{weekdays.map((day) => <span key={day}>{day}</span>)}</div>
         <div className="month-grid">{days.map((day) => {
-          const key = dateKey(day); const entry = journalByDate.get(key); const muted = day.getMonth() !== month; const today = key === dateKey(new Date());
+          const key = localDateKey(day); const entry = journalByDate.get(key); const muted = day.getMonth() !== month; const today = key === localDateKey(new Date());
           return <button key={key} className={`calendar-day ${muted ? "muted" : ""} ${selected === key ? "selected" : ""} ${entry ? "has-entry" : ""}`} onClick={() => setSelected(key)} onDoubleClick={() => onOpenDate(key)}>
             <span className={today ? "today-number" : ""}>{day.getDate()}</span>
             {entry ? <><strong>{entry.emoji} {entry.title.split(",")[0]}</strong><small>{stripHtml(entry.tabs[0]?.content ?? "").slice(0, 62)}</small></> : !muted && <em>—</em>}
           </button>;
         })}</div>
         <div className="mobile-calendar-list">{monthDays.map((day) => {
-          const key = dateKey(day); const entry = journalByDate.get(key); const today = key === dateKey(new Date());
+          const key = localDateKey(day); const entry = journalByDate.get(key); const today = key === localDateKey(new Date());
           return <button key={key} className={`${selected === key ? "selected" : ""} ${entry ? "has-entry" : ""}`} onClick={() => setSelected(key)} onDoubleClick={() => onOpenDate(key)}>
             <span className={today ? "today-number" : ""}>{day.getDate()}</span>
             <div><strong>{new Intl.DateTimeFormat("es-PA", { weekday: "long" }).format(day)}</strong><small>{entry ? stripHtml(entry.tabs[0]?.content ?? "").slice(0, 76) : "Sin entrada"}</small></div>

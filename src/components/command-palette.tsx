@@ -38,28 +38,45 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    inputRef.current?.focus();
+    return () => {
+      if (dialog?.open) dialog.close();
+      previous?.focus();
+    };
+  }, [open]);
   if (!open) return null;
   const filtered = actions.filter((item) =>
     `${item.label} ${item.description} ${item.searchText ?? ""}`
       .toLocaleLowerCase("es")
       .includes(query.trim().toLocaleLowerCase("es")),
   );
+  const closePalette = () => {
+    setQuery("");
+    setSelected(0);
+    onClose();
+  };
   const run = (index: number) => {
     const item = filtered[index];
     if (item) {
       item.action();
-      onClose();
+      closePalette();
     }
   };
   return (
     <dialog
-      open
+      ref={dialogRef}
       className="modal-backdrop command-backdrop"
       aria-modal="true"
       aria-label={mode === "search" ? "Buscar en el espacio" : "Paleta de comandos"}
+      onCancel={(event) => { event.preventDefault(); closePalette(); }}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closePalette();
       }}
     >
       <div className="command-palette">
@@ -76,7 +93,7 @@ export function CommandPalette({
               if (event.key === "ArrowDown") {
                 event.preventDefault();
                 setSelected((value) =>
-                  Math.min(filtered.length - 1, value + 1),
+                  Math.min(Math.max(0, filtered.length - 1), value + 1),
                 );
               } else if (event.key === "ArrowUp") {
                 event.preventDefault();
@@ -84,7 +101,7 @@ export function CommandPalette({
               } else if (event.key === "Enter") {
                 event.preventDefault();
                 run(selected);
-              } else if (event.key === "Escape") onClose();
+              } else if (event.key === "Escape") closePalette();
             }}
             placeholder={
               mode === "search"
@@ -92,7 +109,7 @@ export function CommandPalette({
                 : "Escribe un comando…"
             }
           />
-          <button onClick={onClose}>
+          <button onClick={closePalette} aria-label="Cerrar">
             <X size={17} />
           </button>
         </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, CalendarDays, ChevronDown, ChevronRight, FilePlus2, Folder, Heart, Home, MoreHorizontal, Pencil, Plus, Search, Settings2, Trash2 } from "lucide-react";
 import { TextInputDialog } from "@/src/components/text-input-dialog";
 import type { FolderNames, WorkspaceDocument, WorkspaceFolder } from "@/src/types/workspace";
+import { localDateKey } from "@/src/core/workspace-rules";
 
 interface SidebarProps {
   documents: WorkspaceDocument[];
@@ -70,5 +71,3 @@ export function Sidebar({ documents, workspaceName, folderNames, activeId, activ
 function DocumentRow({ doc, active, onSelect, onFavorite }: { doc: WorkspaceDocument; active: boolean; onSelect: (id: string) => void; onFavorite: (id: string) => void }) {
   return <div className={`document-row ${active ? "active" : ""}`}><button className="document-main" onClick={() => onSelect(doc.id)}><span className="doc-emoji">{doc.emoji}</span><span>{doc.title}</span></button><button className="row-action" aria-label={doc.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} onClick={() => onFavorite(doc.id)}><Heart size={13} fill={doc.favorite ? "currentColor" : "none"} /></button></div>;
 }
-
-function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
