@@ -69,7 +69,7 @@ export function createInitialState(): WorkspaceState {
   networks.tabs[0].content = "<p class=\"eyebrow\">UNIVERSIDAD · REDES</p><h1>Fundamentos de redes</h1><p class=\"lead\">Resumen visual de conceptos y comandos esenciales.</p><h2>Modelo TCP/IP</h2><table><thead><tr><th>Capa</th><th>Ejemplos</th></tr></thead><tbody><tr><td>Aplicación</td><td>HTTP, DNS, SSH</td></tr><tr><td>Transporte</td><td>TCP, UDP</td></tr><tr><td>Internet</td><td>IP, ICMP</td></tr></tbody></table><pre><code>ping 8.8.8.8\nipconfig /all</code></pre>";
 
   return {
-    workspaceName: "Mi Diario",
+    workspaceName: "Mi espacio",
     folderNames: {
       Diario: "Diario",
       Universidad: "Universidad",

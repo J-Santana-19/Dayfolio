@@ -31,7 +31,7 @@ const stripHtml = (html: string) => {
 const entryExcerpt = (entry: WorkspaceDocument, limit = 92) => {
   const text = stripHtml(entry.tabs[0]?.content ?? "")
     .replace(entry.title, "")
-    .replace(/MI DIARIO\s*[·•-]?\s*\d{4}-\d{2}-\d{2}/gi, "")
+    .replace(/(?:MI DIARIO|DAYFOLIO)\s*[·•-]?\s*\d{4}-\d{2}-\d{2}/gi, "")
     .replace(/Un espacio íntimo para recordar tu día\.?/gi, "")
     .replace(/Resumen del día/gi, "")
     .replace(/Gratitud/gi, "")

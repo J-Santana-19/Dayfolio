@@ -236,15 +236,15 @@ async function createExportSurface(
   state: WorkspaceState,
 ) {
   const surface = document.createElement("div");
-  surface.className = "lumina-export-surface";
+  surface.className = "dayfolio-export-surface";
   // html-to-image preserves the element's computed position in its SVG clone.
   // Keeping the surface far outside the viewport therefore produces a valid but
   // empty bitmap in Chromium. Render it on-screen, above the app, for the brief
   // capture window and remove it immediately afterwards.
   surface.style.cssText = `position:fixed;left:0;top:0;width:${state.documentWidth === "wide" ? 1040 : state.documentWidth === "compact" ? 680 : 800}px;background:#fbf8f2;color:#33261f;padding:54px;font-family:${state.editorFont === "sans" ? "Arial,sans-serif" : state.editorFont === "mono" ? "monospace" : "Georgia,serif"};font-size:${state.fontSize === "small" ? 14 : state.fontSize === "large" ? 18 : 16}px;line-height:${state.lineHeight === "compact" ? 1.45 : state.lineHeight === "relaxed" ? 2.05 : 1.75};z-index:2147483647;pointer-events:none;`;
-  surface.innerHTML = `<header class="export-cover"><small>LÚMINA · AGENDA PERSONAL</small><h1>${escapeHtml(doc.title)}</h1></header>${tabs.map((tab) => `<section class="export-tab"><h2 class="export-tab-title">${escapeHtml(tab.title)}</h2><div class="export-content">${exportTabHtml(tab)}</div></section>`).join("")}`;
+  surface.innerHTML = `<header class="export-cover"><small>DAYFOLIO · AGENDA PERSONAL</small><h1>${escapeHtml(doc.title)}</h1></header>${tabs.map((tab) => `<section class="export-tab"><h2 class="export-tab-title">${escapeHtml(tab.title)}</h2><div class="export-content">${exportTabHtml(tab)}</div></section>`).join("")}`;
   const style = document.createElement("style");
-  style.textContent = `.lumina-export-surface *{box-sizing:border-box}.export-cover{padding-bottom:24px;border-bottom:1px solid #cfc1ac;margin-bottom:34px}.export-cover small{letter-spacing:.18em;color:#6f7f5a;font:700 10px Arial}.export-cover h1{font-size:42px;line-height:1.15;margin:10px 0}.export-tab{break-inside:avoid;margin-bottom:42px}.export-tab+.export-tab{border-top:1px solid #cfc1ac;padding-top:32px}.export-tab-title{font:600 25px Georgia;margin:0 0 24px}.export-content h1{font:600 36px/1.2 Georgia}.export-content h2{font:600 24px/1.25 Georgia;margin-top:28px}.export-content h3{font:600 19px/1.3 Georgia}.export-content img,.export-content svg{display:block;max-width:100%;height:auto;margin:24px auto}.export-content figure{break-inside:avoid;margin:24px 0}.export-content figcaption{text-align:center;color:#7e7166;font:12px Arial}.export-content table{border-collapse:collapse;width:100%;break-inside:avoid}.export-content th,.export-content td{border:1px solid #cfc1ac;padding:9px}.export-content pre{white-space:pre-wrap;background:#201b18;color:#f7f2e8;padding:18px;border-radius:8px;break-inside:avoid}.export-content blockquote{border-left:3px solid #6f7f5a;padding:14px 20px;background:#f0ecdf}.visual-export{width:100%}`;
+  style.textContent = `.dayfolio-export-surface *{box-sizing:border-box}.export-cover{padding-bottom:24px;border-bottom:1px solid #cfc1ac;margin-bottom:34px}.export-cover small{letter-spacing:.18em;color:#6f7f5a;font:700 10px Arial}.export-cover h1{font-size:42px;line-height:1.15;margin:10px 0}.export-tab{break-inside:avoid;margin-bottom:42px}.export-tab+.export-tab{border-top:1px solid #cfc1ac;padding-top:32px}.export-tab-title{font:600 25px Georgia;margin:0 0 24px}.export-content h1{font:600 36px/1.2 Georgia}.export-content h2{font:600 24px/1.25 Georgia;margin-top:28px}.export-content h3{font:600 19px/1.3 Georgia}.export-content img,.export-content svg{display:block;max-width:100%;height:auto;margin:24px auto}.export-content figure{break-inside:avoid;margin:24px 0}.export-content figcaption{text-align:center;color:#7e7166;font:12px Arial}.export-content table{border-collapse:collapse;width:100%;break-inside:avoid}.export-content th,.export-content td{border:1px solid #cfc1ac;padding:9px}.export-content pre{white-space:pre-wrap;background:#201b18;color:#f7f2e8;padding:18px;border-radius:8px;break-inside:avoid}.export-content blockquote{border-left:3px solid #6f7f5a;padding:14px 20px;background:#f0ecdf}.visual-export{width:100%}`;
   surface.appendChild(style);
   document.body.appendChild(surface);
   await document.fonts.ready;
@@ -347,7 +347,7 @@ export async function exportWorkspaceDocument(
     return;
   }
   if (options.format === "html") {
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(doc.title)}</title><style>body{font:16px/1.65 system-ui;color:#20242e;max-width:820px;margin:48px auto;padding:0 28px}h1{font-size:36px}img,svg{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:9px}pre{background:#111827;color:#f8fafc;padding:18px;border-radius:10px;white-space:pre-wrap}section+section{border-top:1px solid #ddd;margin-top:48px;padding-top:32px}</style></head><body><header><small>Exportado desde Mi Diario</small><h1>${escapeHtml(doc.title)}</h1></header>${combinedHtml}</body></html>`;
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(doc.title)}</title><style>body{font:16px/1.65 system-ui;color:#20242e;max-width:820px;margin:48px auto;padding:0 28px}h1{font-size:36px}img,svg{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:9px}pre{background:#111827;color:#f8fafc;padding:18px;border-radius:10px;white-space:pre-wrap}section+section{border-top:1px solid #ddd;margin-top:48px;padding-top:32px}</style></head><body><header><small>Exportado desde Dayfolio</small><h1>${escapeHtml(doc.title)}</h1></header>${combinedHtml}</body></html>`;
     download(
       new Blob([html], { type: "text/html;charset=utf-8" }),
       `${base}.html`,
@@ -526,6 +526,6 @@ export function downloadBackup(state: WorkspaceState) {
   };
   download(
     new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
-    `lumina-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    `dayfolio-backup-${new Date().toISOString().slice(0, 10)}.json`,
   );
 }

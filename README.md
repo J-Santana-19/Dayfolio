@@ -1,6 +1,6 @@
-# Lúmina
+# Dayfolio
 
-Agenda personal local-first con estética de diario clásico para escribir, organizar recuerdos y trabajar con recursos visuales.
+Agenda personal local-first para planificar el día, capturar ideas y conservar tu historia con una estética de diario clásico.
 
 ## Funciones principales
 

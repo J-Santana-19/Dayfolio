@@ -8,7 +8,6 @@ import { localDateKey } from "@/src/core/workspace-rules";
 
 interface SidebarProps {
   documents: WorkspaceDocument[];
-  workspaceName: string;
   folderNames: FolderNames;
   activeId: string;
   activeView: "document" | "calendar" | "trash";
@@ -26,7 +25,7 @@ interface SidebarProps {
 
 const folderOrder: WorkspaceFolder[] = ["Diario", "Universidad", "Proyectos", "Notas"];
 
-export function Sidebar({ documents, workspaceName, folderNames, activeId, activeView, collapsed, onSelect, onAdd, onDaily, onCalendar, onTrash, onSearch, onSettings, onToggleFavorite, onRenameFolder }: SidebarProps) {
+export function Sidebar({ documents, folderNames, activeId, activeView, collapsed, onSelect, onAdd, onDaily, onCalendar, onTrash, onSearch, onSettings, onToggleFavorite, onRenameFolder }: SidebarProps) {
   const [closedFolders, setClosedFolders] = useState<WorkspaceFolder[]>([]);
   const [renameFolder, setRenameFolder] = useState<WorkspaceFolder | null>(null);
   const [folderName, setFolderName] = useState("");
@@ -39,7 +38,7 @@ export function Sidebar({ documents, workspaceName, folderNames, activeId, activ
     setFolderError("");
   };
   return <aside className={`sidebar ${collapsed ? "sidebar-collapsed" : ""}`} aria-label="Navegación del espacio">
-    <div className="brand-row"><div className="brand-mark">❧</div><div className="brand-copy"><strong>{workspaceName}</strong><span>Diario · notas · calendario</span></div><button className="icon-button quiet" aria-label="Preferencias del espacio" onClick={onSettings}><MoreHorizontal size={17} /></button></div>
+    <div className="brand-row"><div className="brand-mark" role="img" aria-label="Logo de Dayfolio" /><div className="brand-copy"><strong>Dayfolio</strong><span>Planifica · captura tu historia</span></div><button className="icon-button quiet" aria-label="Preferencias del espacio" onClick={onSettings}><MoreHorizontal size={17} /></button></div>
     <button className="quick-search" onClick={onSearch}><Search size={16} /><span>Buscar en mi agenda</span><kbd>Ctrl K</kbd></button>
     <div className="primary-nav">
       <button className={activeView === "document" && documents.find((doc) => doc.id === activeId)?.journalDate === localDateKey(new Date()) ? "active" : ""} onClick={onDaily}><Home /><span>Hoy</span></button>

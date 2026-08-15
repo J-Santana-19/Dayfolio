@@ -248,7 +248,7 @@ export function WorkspaceApp() {
       id: "theme",
       label:
         state.theme === "light" ? "Activar noche tinta" : "Activar papel crema",
-      description: "Cambia la atmósfera de Mi Diario",
+      description: "Cambia la atmósfera de Dayfolio",
       icon: state.theme === "light" ? commandIcons.dark : commandIcons.light,
       action: () =>
         setState((current) => ({
@@ -261,8 +261,8 @@ export function WorkspaceApp() {
   if (!ready || !activeDocument || !activeTab)
     return (
       <div className="app-loading">
-        <div className="brand-mark">❧</div>
-        <p>Abriendo tu agenda…</p>
+        <div className="brand-mark" role="img" aria-label="Logo de Dayfolio" />
+        <p>Abriendo Dayfolio…</p>
       </div>
     );
   const wordCount =
@@ -326,7 +326,6 @@ export function WorkspaceApp() {
     <div className={appClasses} style={style}>
       <Sidebar
         documents={state.documents}
-        workspaceName={state.workspaceName}
         folderNames={state.folderNames}
         activeId={activeDocument.id}
         activeView={view}
@@ -376,7 +375,7 @@ export function WorkspaceApp() {
           <div className="breadcrumbs">
             <span>
               {view === "calendar"
-                ? "Mi Diario"
+                ? "Dayfolio"
                 : view === "trash"
                   ? "Organización"
                   : activeDocument.folder}

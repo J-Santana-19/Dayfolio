@@ -232,7 +232,7 @@ export function useWorkspace() {
       doc.journalDate = dateKey;
       doc.createdAt = date.getTime();
       doc.updatedAt = date.getTime();
-      doc.tabs[0].content = `<p class="eyebrow">MI DIARIO · ${dateKey}</p><h1>${doc.title}</h1><p class="lead">Un espacio íntimo para recordar tu día.</p><h2>Resumen del día</h2><p>Empieza a escribir…</p><h2>Gratitud</h2><ul><li><br></li></ul><h2>Pendientes</h2><ul><li><br></li></ul>`;
+      doc.tabs[0].content = `<p class="eyebrow">DAYFOLIO · ${dateKey}</p><h1>${doc.title}</h1><p class="lead">Un espacio íntimo para recordar tu día.</p><h2>Resumen del día</h2><p>Empieza a escribir…</p><h2>Gratitud</h2><ul><li><br></li></ul><h2>Pendientes</h2><ul><li><br></li></ul>`;
       return {
         ...current,
         documents: [...current.documents, doc],

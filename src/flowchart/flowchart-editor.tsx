@@ -424,7 +424,7 @@ export function FlowchartEditor({
       .querySelectorAll(".selection-handle,.connection-handle,.selection-box")
       .forEach((el) => el.remove());
     const anchor = document.createElement("a");
-    anchor.download = "diagrama-lumina.svg";
+    anchor.download = "diagrama-dayfolio.svg";
     const url = URL.createObjectURL(
       new Blob([new XMLSerializer().serializeToString(clone)], {
         type: "image/svg+xml",

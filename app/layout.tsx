@@ -13,23 +13,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mi Diario — Notas y calendario",
-  description: "Escribe, organiza tus días y conserva tus recuerdos en una agenda digital clásica, privada y local-first.",
+  title: "Dayfolio — Agenda, notas y calendario",
+  description: "Planifica tu día, escribe tus ideas y conserva tu historia en una agenda digital clásica, privada y local-first.",
   metadataBase: new URL("https://lumina-espacio-personal.abelzit0.chatgpt.site"),
   openGraph: {
-    title: "Mi Diario — Notas y calendario",
-    description: "Tu historia importa. Escríbela cada día.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Vista de Mi Diario" }],
+    title: "Dayfolio — Agenda, notas y calendario",
+    description: "Planifica tu día. Captura tu historia.",
+    images: [{ url: "/dayfolio-brand.png", width: 1254, height: 1254, alt: "Logo de Dayfolio" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mi Diario — Notas y calendario",
-    description: "Tu historia importa. Escríbela cada día.",
-    images: ["/og.png"],
+    title: "Dayfolio — Agenda, notas y calendario",
+    description: "Planifica tu día. Captura tu historia.",
+    images: ["/dayfolio-brand.png"],
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/dayfolio-icon.png",
+    shortcut: "/dayfolio-icon.png",
+    apple: "/dayfolio-icon.png",
   },
 };
 

@@ -222,3 +222,15 @@
 .fatal-error{min-height:100dvh;display:grid;place-content:center;justify-items:center;gap:14px;padding:32px;text-align:center;background:#f7f2e8;color:#3d2c22;font-family:Georgia,serif}
 .fatal-error span{font-size:40px;color:#6f7f5a}.fatal-error h1{max-width:620px;margin:0;font-size:clamp(28px,5vw,46px)}.fatal-error p{max-width:620px;margin:0;font:16px/1.7 system-ui,sans-serif;color:#675b52}.fatal-error button{margin-top:8px;padding:12px 18px;border:0;border-radius:10px;background:#6f7f5a;color:#fff;font-weight:700;cursor:pointer}
 @media(max-width:760px){.mobile-calendar-list small,.calendar-kicker,.settings-nav>button{font-size:11px}.mobile-calendar-list>button{min-height:58px}.format-toolbar button,.visual-toolbar button{min-height:36px}}
+
+/* Dayfolio identity */
+.brand-mark,.settings-brand-logo{
+  background-color:#fdfaf5!important;
+  background-image:url("/dayfolio-icon.png")!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:cover!important;
+  color:transparent!important;
+}
+.brand-mark{overflow:hidden}
+.settings-brand-logo{overflow:hidden}

@@ -80,10 +80,10 @@ export function SettingsDialog({
       >
         <aside className="settings-nav">
           <div className="settings-brand">
-            <span>❧</span>
+            <span className="settings-brand-logo" role="img" aria-label="Logo de Dayfolio" />
             <div>
-              <strong>{state.workspaceName}</strong>
-              <small>Preferencias</small>
+              <strong>Dayfolio</strong>
+              <small>{state.workspaceName}</small>
             </div>
           </div>
           <button

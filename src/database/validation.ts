@@ -236,7 +236,7 @@ export function normalizeWorkspaceState(value: unknown): WorkspaceState {
     ? requestedActive
     : documents.find((doc) => !doc.trashed)!.id;
   const requestedWorkspaceName = text(input.workspaceName, defaults.workspaceName, 120).trim();
-  const workspaceName = /^(?:mi agenda|lúmina)$/i.test(requestedWorkspaceName)
+  const workspaceName = /^(?:mi agenda|mi diario|lúmina|dayfolio)$/i.test(requestedWorkspaceName)
     ? defaults.workspaceName
     : requestedWorkspaceName || defaults.workspaceName;
   return {
@@ -306,11 +306,11 @@ export function parseWorkspaceBackup(textValue: string): WorkspaceState {
   }
   const root = objectValue(payload);
   if (root.format !== "lumina-workspace" || !root.state)
-    throw new Error("El archivo no es una copia válida de Mi Diario.");
+    throw new Error("El archivo no es una copia válida de Dayfolio.");
   const version = root.version ?? 1;
   if (typeof version !== "number" || !Number.isInteger(version) || version < 1)
     throw new Error("La copia tiene una versión inválida.");
   if (version > 2)
-    throw new Error("Esta copia fue creada por una versión más reciente de Mi Diario.");
+    throw new Error("Esta copia fue creada por una versión más reciente de Dayfolio.");
   return normalizeWorkspaceState(root.state);
 }
