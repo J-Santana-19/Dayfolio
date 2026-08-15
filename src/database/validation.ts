@@ -234,10 +234,12 @@ export function normalizeWorkspaceState(value: unknown): WorkspaceState {
   )
     ? requestedActive
     : documents.find((doc) => !doc.trashed)!.id;
+  const requestedWorkspaceName = text(input.workspaceName, defaults.workspaceName, 120).trim();
+  const workspaceName = /^(?:mi agenda|lúmina)$/i.test(requestedWorkspaceName)
+    ? defaults.workspaceName
+    : requestedWorkspaceName || defaults.workspaceName;
   return {
-    workspaceName:
-      text(input.workspaceName, defaults.workspaceName, 120).trim() ||
-      defaults.workspaceName,
+    workspaceName,
     folderNames: (() => {
       const names = objectValue(input.folderNames);
       return Object.fromEntries(
